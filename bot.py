@@ -26,14 +26,13 @@ ADMIN_ID = 92220977  # آیدی عددی ادمین
 bot = telebot.TeleBot(TOKEN)
 
 # --- پایگاه داده موقت کاربران ---
-# ساختار: { user_id: {"balance": 0, "referrals": 0, "referred_by": None, "lang": "fa", "wallet": None, "state": None} }
 users_db = {}
 
 settings = {
     "reward_per_referral": 10
 }
 
-# --- ترجمه کلمات به 6 زبان ---
+# --- ترجمه کلمات به 6 زبان (با اصلاح کلمه توکن برای هر زبان) ---
 TRANSLATIONS = {
     "fa": {
         "choose_lang": "لطفاً زبان خود را انتخاب کنید:",
@@ -49,6 +48,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **پنل کاربری شما**",
         "username": "👤 نام کاربری",
         "balance": "💰 موجودی توکن",
+        "token_word": "توکن",
         "referrals": "👥 تعداد زیرمجموعه‌ها",
         "wallet": "💳 کیف پول",
         "not_set": "تنظیم نشده",
@@ -57,7 +57,7 @@ TRANSLATIONS = {
         "refresh": "🔄 بروزرسانی حساب",
         "settings": "⚙️ تنظیمات",
         "settings_title": "⚙️ **بخش تنظیمات**\n\nگزینه مورد نظر خود را انتخاب کنید:",
-        "change_lang": " تغيير زبان 🌐 / Change Language",
+        "change_lang": "🌐 تغییر زبان",
         "set_wallet": "💳 ثبت/ویرایش کیف پول",
         "back_to_menu": "🔙 بازگشت به منوی اصلی",
         "enter_new_wallet": "لطفاً آدرس جدید کیف پول خود را ارسال کنید:",
@@ -79,6 +79,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **Your User Panel**",
         "username": "👤 Username",
         "balance": "💰 Token Balance",
+        "token_word": "tokens",
         "referrals": "👥 Referrals",
         "wallet": "💳 Wallet",
         "not_set": "Not Set",
@@ -109,6 +110,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **Ваша панель управления**",
         "username": "👤 Имя пользователя",
         "balance": "💰 Баланс токенов",
+        "token_word": "токенов",
         "referrals": "👥 Рефералы",
         "wallet": "💳 Кошелек",
         "not_set": "Не указан",
@@ -139,6 +141,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **لوحة التحكم الخاصة بك**",
         "username": "👤 اسم المستخدم",
         "balance": "💰 رصيد الرموز",
+        "token_word": "رمز",
         "referrals": "👥 عدد الإحالات",
         "wallet": "💳 المحفظة",
         "not_set": "غير محدد",
@@ -169,6 +172,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **Tu Panel de Usuario**",
         "username": "👤 Nombre de usuario",
         "balance": "💰 Saldo de Tokens",
+        "token_word": "tokens",
         "referrals": "👥 Referidos",
         "wallet": "💳 Billetera",
         "not_set": "No configurado",
@@ -199,6 +203,7 @@ TRANSLATIONS = {
         "panel_title": "📊 **आपका यूजर पैनल**",
         "username": "👤 यूजरनेम",
         "balance": "💰 टोकन बैलेंस",
+        "token_word": "टोकन",
         "referrals": "👥 रेफरल",
         "wallet": "💳 वॉलेट",
         "not_set": "सेट नहीं है",
@@ -212,8 +217,8 @@ TRANSLATIONS = {
         "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
         "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
         "admin_panel": "🛠 **एडमिन पैनल**",
-        "not_admin": "आपके پاس ایڈमिन تک رسائی نہیں ہے۔",
-        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए گئے हैं।"
+        "not_admin": "आपके पास एडमिन तक पहुंच नहीं है।",
+        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए गए हैं।"
     }
 }
 
@@ -229,7 +234,6 @@ def is_user_member(user_id):
     except Exception:
         return False
 
-# --- شروع و انتخاب زبان ---
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
@@ -244,7 +248,6 @@ def handle_start(message):
             "state": "selecting_lang"
         }
 
-    # پردازش رفرال
     args = message.text.split()
     if len(args) > 1:
         inviter_id_str = args[1]
@@ -265,17 +268,17 @@ def handle_start(message):
                     except Exception:
                         pass
 
-    # نمایش دکمه‌های انتخاب زبان
+    # اصلاح متن دکمه‌های انتخاب زبان (فقط به زبان خودشون نوشته شدند)
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
+        types.InlineKeyboardButton("فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("हिन्दी", callback_data="setlang_hi")
     )
-    bot.send_message(user_id, "لطفاً زبان خود را انتخاب کنید / Please select your language:", reply_markup=markup)
+    bot.send_message(user_id, "Please select your language / لطفاً زبان خود را انتخاب کنید:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
 def process_language_selection(call):
@@ -311,7 +314,6 @@ def check_channel_and_proceed(chat_id, user_id):
         )
         return
 
-    # اگر کاربر عضو بود و کیف پول نداشت، درخواست کیف پول می‌کنیم
     if not users_db[user_id].get("wallet"):
         ask_for_wallet(chat_id, user_id)
     else:
@@ -371,10 +373,11 @@ def send_main_menu(chat_id, user_id):
     bot_info = bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
 
+    token_w = get_text(user_id, 'token_word')
     text = (
         f"{get_text(user_id, 'panel_title')}\n\n"
         f"{get_text(user_id, 'username')}: `{username}`\n"
-        f"{get_text(user_id, 'balance')}: `{user_data['balance']}` توکن\n"
+        f"{get_text(user_id, 'balance')}: `{user_data['balance']}` {token_w}\n"
         f"{get_text(user_id, 'referrals')}: `{user_data['referrals']}`\n"
         f"{get_text(user_id, 'wallet')}: `{wallet}`\n\n"
         f"{get_text(user_id, 'ref_link_text')}\n`{ref_link}`\n\n"
@@ -402,7 +405,6 @@ def refresh_account(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
-# --- منوی تنظیمات ---
 @bot.callback_query_handler(func=lambda call: call.data == "open_settings")
 def open_settings_menu(call):
     user_id = call.from_user.id
@@ -417,19 +419,22 @@ def open_settings_menu(call):
     except Exception:
         bot.send_message(call.message.chat.id, get_text(user_id, "settings_title"), reply_markup=markup, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data == "setting_change_lang")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("setting_change_lang") or call.data == "setting_change_lang")
 def settings_change_lang(call):
     user_id = call.from_user.id
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
+        types.InlineKeyboardButton("فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("हिन्दी", callback_data="setlang_hi")
     )
-    bot.edit_message_text(get_text(user_id, "choose_lang"), call.message.chat.id, call.message.message_id, reply_markup=markup)
+    try:
+        bot.edit_message_text(get_text(user_id, "choose_lang"), call.message.chat.id, call.message.message_id, reply_markup=markup)
+    except Exception:
+        bot.send_message(call.message.chat.id, get_text(user_id, "choose_lang"), reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "setting_set_wallet")
 def settings_set_wallet(call):
@@ -447,7 +452,6 @@ def back_to_main_menu(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
-# --- بخش مدیریت ادمین ---
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     user_id = message.from_user.id
@@ -465,5 +469,5 @@ def admin_panel(message):
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running with 6-languages and full features...")
+    print("Bot is running successfully with localized tokens and clean language buttons...")
     bot.infinity_polling()
