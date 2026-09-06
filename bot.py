@@ -32,10 +32,10 @@ settings = {
     "reward_per_referral": 10
 }
 
-# --- ترجمه کلمات به 6 زبان (با اصلاح کلمه توکن برای هر زبان) ---
+# --- ترجمه کلمات به 6 زبان ---
 TRANSLATIONS = {
     "fa": {
-        "choose_lang": "لطفاً زبان خود را انتخاب کنید:",
+        "choose_lang": "Please select your language:",
         "lang_changed": "زبان با موفقیت به فارسی تغییر یافت.",
         "join_channel": "📢 عضویت در کانال",
         "check_membership": "✅ عضو شدم، بررسی کن",
@@ -97,7 +97,7 @@ TRANSLATIONS = {
         "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance."
     },
     "ru": {
-        "choose_lang": "Пожалуйста, выберите язык:",
+        "choose_lang": "Please select your language:",
         "lang_changed": "Язык успешно изменен на русский.",
         "join_channel": "📢 Подписаться на канал",
         "check_membership": "✅ Я подписался, проверить",
@@ -128,7 +128,7 @@ TRANSLATIONS = {
         "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов."
     },
     "ar": {
-        "choose_lang": "الرجاء اختيار لغتك:",
+        "choose_lang": "Please select your language:",
         "lang_changed": "تم تغيير لغة التطبيق إلى العربية بنجاح.",
         "join_channel": "📢 اشتراك في القناة",
         "check_membership": "✅ لقد اشتركت، تحقق",
@@ -159,7 +159,7 @@ TRANSLATIONS = {
         "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك."
     },
     "es": {
-        "choose_lang": "Por favor, seleccione su idioma:",
+        "choose_lang": "Please select your language:",
         "lang_changed": "Idioma cambiado exitosamente a español.",
         "join_channel": "📢 Unirse al canal",
         "check_membership": "✅ Me he unido, verificar",
@@ -190,7 +190,7 @@ TRANSLATIONS = {
         "ref_reward_msg": "🎉 ¡El usuario {name} se unió con tu enlace!\n🎁 Se añadieron {reward} tokens a tu saldo."
     },
     "hi": {
-        "choose_lang": "कृपया अपनी भाषा चुनें:",
+        "choose_lang": "Please select your language:",
         "lang_changed": "भाषा सफलतापूर्वक हिंदी में बदल दी गई है।",
         "join_channel": "📢 चैनल से जुड़ें",
         "check_membership": "✅ मैंने जुड़ लिया है, जांचें",
@@ -268,17 +268,17 @@ def handle_start(message):
                     except Exception:
                         pass
 
-    # اصلاح متن دکمه‌های انتخاب زبان (فقط به زبان خودشون نوشته شدند)
+    # بازگشت پرچم‌ها به دکمه‌های زبان و متن انگلیسی در بالای آن
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("हिन्दी", callback_data="setlang_hi")
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
     )
-    bot.send_message(user_id, "Please select your language / لطفاً زبان خود را انتخاب کنید:", reply_markup=markup)
+    bot.send_message(user_id, "Please select your language:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
 def process_language_selection(call):
@@ -419,22 +419,22 @@ def open_settings_menu(call):
     except Exception:
         bot.send_message(call.message.chat.id, get_text(user_id, "settings_title"), reply_markup=markup, parse_mode="Markdown")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("setting_change_lang") or call.data == "setting_change_lang")
+@bot.callback_query_handler(func=lambda call: call.data == "setting_change_lang")
 def settings_change_lang(call):
     user_id = call.from_user.id
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("हिन्दी", callback_data="setlang_hi")
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
     )
     try:
-        bot.edit_message_text(get_text(user_id, "choose_lang"), call.message.chat.id, call.message.message_id, reply_markup=markup)
+        bot.edit_message_text("Please select your language:", call.message.chat.id, call.message.message_id, reply_markup=markup)
     except Exception:
-        bot.send_message(call.message.chat.id, get_text(user_id, "choose_lang"), reply_markup=markup)
+        bot.send_message(call.message.chat.id, "Please select your language:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "setting_set_wallet")
 def settings_set_wallet(call):
@@ -469,5 +469,5 @@ def admin_panel(message):
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running successfully with localized tokens and clean language buttons...")
+    print("Bot is running with flags and English prompt...")
     bot.infinity_polling()
