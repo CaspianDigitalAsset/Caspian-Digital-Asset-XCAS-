@@ -31,13 +31,13 @@ bot = telebot.TeleBot(TOKEN)
 users_db = {}
 
 settings = {
-    "signup_reward": 0,          # پاداش عضویت اولیه
-    "reward_per_referral": 10,   # پاداش پایه هر رفرال
-    "ref_milestone_count": 0,    # تعداد رفرال هدف (مثلا 5)
-    "ref_milestone_bonus": 0     # پاداش تعیین شده برای رفرال هدف (مثلا 1 توکن)
+    "signup_reward": 0,          
+    "reward_per_referral": 10,   
+    "ref_milestone_count": 0,    
+    "ref_milestone_bonus": 0     
 }
 
-admin_states = {} # نگهداری وضعیت موقت ادمین برای دریافت مقادیر جدید
+admin_states = {} 
 
 # --- ترجمه کلمات به 6 زبان ---
 TRANSLATIONS = {
@@ -184,6 +184,8 @@ TRANSLATIONS = {
         "set_wallet": "💳 Configurar/Editar Billetera",
         "back_to_menu": "🔙 Volver al Menú Principal",
         "enter_new_wallet": "Por favor, envíe la nueva dirección de su billetera:",
+        "admin_panel": "🛠 **Panel de Administración**",
+        "not_admin": "No tienes acceso de administrador.",
         "ref_reward_msg": "🎉 ¡El usuario {name} se unió con tu enlace!\n🎁 Se añadieron {reward} tokens a tu saldo."
     },
     "hi": {
@@ -213,7 +215,9 @@ TRANSLATIONS = {
         "set_wallet": "💳 वॉलेट सेट/संपादित करें",
         "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
         "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
-        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकن जोड़ दिए गए हैं."
+        "admin_panel": "🛠 **एडमिन पैनल**",
+        "not_admin": "आपके पास एडमिन तक पहुंच नहीं है।",
+        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए गए हैं."
     }
 }
 
@@ -233,12 +237,13 @@ def is_user_member(user_id):
 def handle_start(message):
     user_id = message.from_user.id
     
+    # ثبت نام اولیه یا آپدیت اطلاعات پایه کاربر در صورت عدم حضور در دیتابیس
     if user_id not in users_db:
         initial_balance = float(settings["signup_reward"])
         users_db[user_id] = {
             "user_id": user_id,
-            "first_name": message.from_user.first_name,
-            "username": message.from_user.username,
+            "first_name": message.from_user.first_name or "No Name",
+            "username": message.from_user.username or "",
             "balance": initial_balance,
             "referrals": 0,
             "referred_by": None,
@@ -257,7 +262,6 @@ def handle_start(message):
                         users_db[user_id]["referred_by"] = inviter_id
                         users_db[inviter_id]["referrals"] += 1
                         
-                        # محاسبه پاداش رفرال با توجه به ساختار تعیین شده
                         reward = settings["reward_per_referral"]
                         milestone_count = settings["ref_milestone_count"]
                         milestone_bonus = settings["ref_milestone_bonus"]
@@ -274,6 +278,10 @@ def handle_start(message):
                             bot.send_message(inviter_id, msg_text)
                         except Exception:
                             pass
+    else:
+        # بروزرسانی نام و یوزرنیم در صورت تغییر
+        users_db[user_id]["first_name"] = message.from_user.first_name or "No Name"
+        users_db[user_id]["username"] = message.from_user.username or ""
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -292,7 +300,15 @@ def process_language_selection(call):
     lang_code = call.data.split("_")[1]
     
     if user_id not in users_db:
-        users_db[user_id] = {"user_id": user_id, "first_name": call.from_user.first_name, "username": call.from_user.username, "balance": 0.0, "referrals": 0, "referred_by": None, "wallet": None}
+        users_db[user_id] = {
+            "user_id": user_id, 
+            "first_name": call.from_user.first_name or "No Name", 
+            "username": call.from_user.username or "", 
+            "balance": float(settings["signup_reward"]), 
+            "referrals": 0, 
+            "referred_by": None, 
+            "wallet": None
+        }
     
     users_db[user_id]["lang"] = lang_code
     bot.answer_callback_query(call.id, get_text(user_id, "lang_changed"))
@@ -471,7 +487,7 @@ def admin_panel(message):
         f"• پاداش عضویت اولیه: `{settings['signup_reward']}` توکن\n"
         f"• پاداش پایه هر رفرال: `{settings['reward_per_referral']}` توکن\n"
         f"• ساختار تشویقی: هر `{settings['ref_milestone_count']}` رفرال، مقدار `{settings['ref_milestone_bonus']}` توکن اضافه\n"
-        f"• تعداد کل کاربران: `{len(users_db)}` نفر\n\n"
+        f"• تعداد کل کاربران ثبت‌شده: `{len(users_db)}` نفر\n\n"
         f"از دکمه‌های زیر برای تغییر تنظیمات یا دریافت خروجی استفاده کنید:"
     )
     
@@ -555,42 +571,41 @@ def handle_admin_inputs(message):
 def send_csv_export(admin_id):
     output = io.StringIO()
     writer = csv.writer(output)
-    # هدرهای جدول
     writer.writerow(["User ID", "First Name", "Username", "Balance", "Referrals", "Language", "Wallet"])
     
     for uid, udata in users_db.items():
         writer.writerow([
             udata.get("user_id"),
-            udata.get("first_name"),
+            udata.get("first_name", ""),
             udata.get("username", ""),
-            udata.get("balance"),
-            udata.get("referrals"),
-            udata.get("lang"),
+            udata.get("balance", 0),
+            udata.get("referrals", 0),
+            udata.get("lang", "fa"),
             udata.get("wallet", "Not Set")
         ])
     
     output.seek(0)
     file_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
     file_bytes.name = "users_report.csv"
-    bot.send_document(admin_id, file_bytes, caption="📁 فایل اکسل (CSV) لیست کاربران ربات")
+    bot.send_document(admin_id, file_bytes, caption=f"📁 فایل اکسل (CSV) لیست کاربران (تعداد کل: {len(users_db)})")
 
 def send_html_export(admin_id):
-    html_content = """
+    html_content = f"""
     <html>
     <head>
         <meta charset="utf-8">
         <title>Users Report</title>
         <style>
-            body { font-family: Tahoma, sans-serif; direction: rtl; background: #f4f4f9; padding: 20px; }
-            h2 { color: #333; }
-            table { width: 100%; border-collapse: collapse; background: #fff; margin-top: 15px; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-            th { background-color: #4CAF50; color: white; }
-            tr:nth-child(even) { background-color: #f2f2f2; }
+            body {{ font-family: Tahoma, sans-serif; direction: rtl; background: #f4f4f9; padding: 20px; }}
+            h2 {{ color: #333; }}
+            table {{ width: 100%; border-collapse: collapse; background: #fff; margin-top: 15px; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: center; }}
+            th {{ background-color: #4CAF50; color: white; }}
+            tr:nth-child(even) {{ background-color: #f2f2f2; }}
         </style>
     </head>
     <body>
-        <h2>گزارش کامل کاربران ربات</h2>
+        <h2>گزارش کامل کاربران ربات (مجموع اعضا: {len(users_db)})</h2>
         <table>
             <tr>
                 <th>شناسه کاربری (ID)</th>
@@ -604,15 +619,17 @@ def send_html_export(admin_id):
     """
     
     for uid, udata in users_db.items():
+        uname = f"@{udata.get('username')}" if udata.get("username") else "ندارد"
+        wlt = udata.get("wallet") or "ثبت نشده"
         html_content += f"""
             <tr>
                 <td>{udata.get("user_id")}</td>
-                <td>{udata.get("first_name")}</td>
-                <td>@{udata.get("username", "ندارد")}</td>
-                <td>{udata.get("balance")}</td>
-                <td>{udata.get("referrals")}</td>
-                <td>{udata.get("lang")}</td>
-                <td>{udata.get("wallet", "ثبت نشده")}</td>
+                <td>{udata.get("first_name", "بدون نام")}</td>
+                <td>{uname}</td>
+                <td>{udata.get("balance", 0)}</td>
+                <td>{udata.get("referrals", 0)}</td>
+                <td>{udata.get("lang", "fa")}</td>
+                <td>{wlt}</td>
             </tr>
         """
         
@@ -624,10 +641,10 @@ def send_html_export(admin_id):
     
     file_bytes = io.BytesIO(html_content.encode('utf-8'))
     file_bytes.name = "users_report.html"
-    bot.send_document(admin_id, file_bytes, caption="🌐 فایل گزارش HTML کاربران")
+    bot.send_document(admin_id, file_bytes, caption=f"🌐 فایل گزارش HTML کاربران (تعداد کل: {len(users_db)})")
 
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running with Advanced Admin & Export features...")
+    print("Bot is running with full user collection fix...")
     bot.infinity_polling()
