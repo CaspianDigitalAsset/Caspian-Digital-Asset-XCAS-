@@ -449,7 +449,6 @@ def send_main_menu(chat_id, user_id):
 
     token_w = get_text(user_id, 'token_word')
     
-    # اگر پیام عمومی/ثابت تنظیم شده باشد، در صفحه اصلی نمایش داده می‌شود
     announcement_text = f"\n\n📢 **اطلاعیه مهم:**\n{settings['announcement']}" if settings['announcement'] else ""
 
     text = (
@@ -531,7 +530,7 @@ def back_to_main_menu(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
-# --- بخش مدیریت پیشرفته (Admin Panel با قابلیت‌های کامل) ---
+# --- بخش مدیریت پیشرفته (Admin Panel) ---
 
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
@@ -540,7 +539,6 @@ def admin_panel(message):
         bot.send_message(user_id, get_text(user_id, "not_admin"))
         return
     
-    # پنل ادمین بر اساس زبان انتخاب‌شده توسط خودِ ادمین نمایش داده می‌شود
     admin_text = get_text(
         user_id, 
         "admin_panel", 
@@ -574,55 +572,71 @@ def admin_callbacks(call):
     if action == "adm_set_signup":
         admin_states[user_id] = "waiting_signup_reward"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً مقدار جدید پاداش عضویت اولیه را (به صورت عدد) ارسال کنید:")
+        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "لطفاً مقدار جدید پاداش عضویت اولیه را (به صورت عدد) ارسال کنید:" or "Please send the new signup reward amount:")
     
     elif action == "adm_set_ref":
         admin_states[user_id] = "waiting_ref_reward"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً مقدار جدید پاداش پایه هر رفرال را (به صورت عدد) ارسال کنید:")
+        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "لطفاً مقدار جدید پاداش پایه هر رفرال را (به صورت عدد) ارسال کنید:" or "Please send the new referral reward amount:")
         
     elif action == "adm_set_milestone":
         admin_states[user_id] = "waiting_milestone_config"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1`")
+        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1`" or "Send milestone configuration (e.g., `5, 1`):")
         
     elif action == "adm_export_csv":
-        bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل اکسل...")
+        bot.answer_callback_query(call.id, get_text(user_id, "lang") == "fa" and "در حال آماده‌سازی فایل اکسل..." or "Preparing CSV export...")
         send_csv_export(user_id)
         
     elif action == "adm_export_html":
-        bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل HTML...")
+        bot.answer_callback_query(call.id, get_text(user_id, "lang") == "fa" and "در حال آماده‌سازی فایل HTML..." or "Preparing HTML export...")
         send_html_export(user_id)
 
     elif action == "adm_reset_bot":
-        # دکمه ریست کل ربات و پاکسازی کاربران
         markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            types.InlineKeyboardButton("✅ بله، کاملاً پاک شود", callback_data="adm_confirm_reset"),
-            types.InlineKeyboardButton("❌ انصراف", callback_data="adm_cancel_reset")
-        )
+        if get_text(user_id, "lang") == "fa":
+            markup.add(
+                types.InlineKeyboardButton("✅ بله، کاملاً پاک شود", callback_data="adm_confirm_reset"),
+                types.InlineKeyboardButton("❌ انصراف", callback_data="adm_cancel_reset")
+            )
+            msg = "⚠️ **آیا مطمئن هستید؟** با این کار اطلاعات تمام کاربران حذف شده و ربات ریست می‌شود."
+        else:
+            markup.add(
+                types.InlineKeyboardButton("✅ Yes, Clear All", callback_data="adm_confirm_reset"),
+                types.InlineKeyboardButton("❌ Cancel", callback_data="adm_cancel_reset")
+            )
+            msg = "⚠️ **Are you sure?** This will clear all user data and reset the bot."
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "⚠️ **آیا مطمئن هستید؟** با این کار اطلاعات تمام کاربران حذف شده و ربات ریست می‌شود.", reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
 
     elif action == "adm_confirm_reset":
         users_db.clear()
         settings["announcement"] = None
-        bot.answer_callback_query(call.id, "ربات با موفقیت ریست شد.")
-        bot.send_message(user_id, "✅ تمام اطلاعات کاربران پاک شد و پایگاه داده خالی گردید.")
+        bot.answer_callback_query(call.id, "Bot reset successfully.")
+        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "✅ تمام اطلاعات کاربران پاک شد و پایگاه داده خالی گردید." or "✅ All user data has been cleared and the database is empty.")
 
     elif action == "adm_cancel_reset":
-        bot.answer_callback_query(call.id, "عملیات لغو شد.")
-        bot.send_message(user_id, "❌ ریست ربات لغو گردید.")
+        bot.answer_callback_query(call.id, "Cancelled.")
+        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "❌ ریست ربات لغو گردید." or "❌ Bot reset cancelled.")
 
     elif action == "adm_set_announcement":
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            types.InlineKeyboardButton("📄 فقط نمایش در صفحه اصلی", callback_data="ann_type_menu"),
-            types.InlineKeyboardButton("📢 ارسال همگانی به همه کاربران", callback_data="ann_type_broadcast"),
-            types.InlineKeyboardButton("🗑 حذف اطلاعیه فعلی", callback_data="ann_type_clear")
-        )
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        if get_text(user_id, "lang") == "fa":
+            markup.add(
+                types.InlineKeyboardButton("📄 فقط نمایش در صفحه اصلی", callback_data="ann_type_menu"),
+                types.InlineKeyboardButton("📢 ارسال همگانی به همه کاربران", callback_data="ann_type_broadcast"),
+                types.InlineKeyboardButton("🗑 حذف اطلاعیه فعلی", callback_data="ann_type_clear")
+            )
+            msg = "انتخاب کنید این پیام چطور اعمال شود:"
+        else:
+            markup.add(
+                types.InlineKeyboardButton("📄 Show in Main Menu Only", callback_data="ann_type_menu"),
+                types.InlineKeyboardButton("📢 Broadcast to All Users", callback_data="ann_type_broadcast"),
+                types.InlineKeyboardButton("🗑 Clear Current Announcement", callback_data="ann_type_clear")
+            )
+            msg = "Choose how to apply this message:"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "انتخاب کنید این پیام چطور اعمال شود:", reply_markup=markup)
+        bot.send_message(user_id, msg, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("ann_type_"))
 def announcement_type_handler(call):
@@ -631,42 +645,44 @@ def announcement_type_handler(call):
         return
     
     action = call.data
+    lang = get_text(user_id, "lang")
     if action == "ann_type_menu":
         admin_states[user_id] = "waiting_announcement_menu"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "متن اطلاعیه را ارسال کنید تا ثابت در صفحه اصلی کاربران نمایش داده شود:")
+        bot.send_message(user_id, "لطفاً متن اطلاعیه را ارسال کنید تا در صفحه اصلی نمایش داده شود:" if lang == "fa" else "Please send the announcement text to show in the main menu:")
     elif action == "ann_type_broadcast":
         admin_states[user_id] = "waiting_announcement_broadcast"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "متن پیام همگانی را ارسال کنید تا بلافاصله به تمامی کاربران ارسال شود:")
+        bot.send_message(user_id, "لطفاً متن پیام همگانی را ارسال کنید:" if lang == "fa" else "Please send the broadcast message text:")
     elif action == "ann_type_clear":
         settings["announcement"] = None
-        bot.answer_callback_query(call.id, "اطلاعیه پاک شد.")
-        bot.send_message(user_id, "✅ متن اطلاعیه صفحه اصلی حذف گردید.")
+        bot.answer_callback_query(call.id, "Cleared.")
+        bot.send_message(user_id, "✅ اطلاعیه پاک شد." if lang == "fa" else "✅ Announcement cleared.")
 
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and admin_states.get(message.from_user.id))
 def handle_admin_inputs(message):
     user_id = message.from_user.id
     state = admin_states.get(user_id)
     text = message.text.strip()
+    lang = get_text(user_id, "lang")
     
     if state == "waiting_signup_reward":
         try:
             val = float(text)
             settings["signup_reward"] = val
             admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ پاداش عضویت با موفقیت به `{val}` تغییر یافت.")
+            bot.send_message(user_id, f"✅ پاداش عضویت به `{val}` تغییر یافت." if lang == "fa" else f"✅ Signup reward changed to `{val}`.")
         except ValueError:
-            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید.")
+            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید." if lang == "fa" else "❌ Please send a valid number.")
             
     elif state == "waiting_ref_reward":
         try:
             val = float(text)
             settings["reward_per_referral"] = val
             admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ پاداش پایه رفرال با موفقیت به `{val}` تغییر یافت.")
+            bot.send_message(user_id, f"✅ پاداش رفرال به `{val}` تغییر یافت." if lang == "fa" else f"✅ Referral reward changed to `{val}`.")
         except ValueError:
-            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید.")
+            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید." if lang == "fa" else "❌ Please send a valid number.")
             
     elif state == "waiting_milestone_config":
         try:
@@ -676,18 +692,18 @@ def handle_admin_inputs(message):
             settings["ref_milestone_count"] = count
             settings["ref_milestone_bonus"] = bonus
             admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ ساختار رفرال تنظیم شد:\nهر `{count}` رفرال = `{bonus}` توکن پاداش اضافه.")
+            bot.send_message(user_id, f"✅ ساختار رفرال تنظیم شد." if lang == "fa" else "✅ Milestone config updated.")
         except Exception:
-            bot.send_message(user_id, "❌ فرمت اشتباه است. دو عدد مانند `5, 1` ارسال کنید.")
+            bot.send_message(user_id, "❌ فرمت اشتباه است." if lang == "fa" else "❌ Invalid format.")
 
     elif state == "waiting_announcement_menu":
         settings["announcement"] = text
         admin_states[user_id] = None
-        bot.send_message(user_id, "✅ اطلاعیه ثبت شد و از این پس در صفحه اصلی پنل تمامی کاربران نمایش داده خواهد شد.")
+        bot.send_message(user_id, "✅ اطلاعیه صفحه اصلی تنظیم شد." if lang == "fa" else "✅ Main menu announcement set.")
 
     elif state == "waiting_announcement_broadcast":
         admin_states[user_id] = None
-        bot.send_message(user_id, f"🚀 در حال ارسال پیام همگانی به {len(users_db)} کاربر...")
+        bot.send_message(user_id, f"🚀 در حال ارسال..." if lang == "fa" else f"🚀 Broadcasting...")
         success_count = 0
         for uid in users_db.keys():
             try:
@@ -695,7 +711,7 @@ def handle_admin_inputs(message):
                 success_count += 1
             except Exception:
                 pass
-        bot.send_message(user_id, f"✅ پیام همگانی با موفقیت به {success_count} کاربر ارسال شد.")
+        bot.send_message(user_id, f"✅ ارسال به {success_count} کاربر انجام شد." if lang == "fa" else f"✅ Broadcast sent to {success_count} users.")
 
 def send_csv_export(admin_id):
     output = io.StringIO()
@@ -716,7 +732,7 @@ def send_csv_export(admin_id):
     output.seek(0)
     file_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
     file_bytes.name = "users_report.csv"
-    bot.send_document(admin_id, file_bytes, caption=f"📁 فایل اکسل (CSV) لیست کاربران (تعداد کل: {len(users_db)})")
+    bot.send_document(admin_id, file_bytes, caption=f"📁 CSV Export (Total: {len(users_db)})")
 
 def send_html_export(admin_id):
     html_content = f"""
@@ -770,10 +786,10 @@ def send_html_export(admin_id):
     
     file_bytes = io.BytesIO(html_content.encode('utf-8'))
     file_bytes.name = "users_report.html"
-    bot.send_document(admin_id, file_bytes, caption=f"🌐 فایل گزارش HTML کاربران (تعداد کل: {len(users_db)})")
+    bot.send_document(admin_id, file_bytes, caption=f"🌐 HTML Export (Total: {len(users_db)})")
 
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
     print("Bot is running with full features and updates...")
-    bot.infinity_polling()
+    bot.infinity_polling(timeout=60, long_polling_timeout=30)
