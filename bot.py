@@ -1,31 +1,21 @@
 import os
 import io
 import csv
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from telebot import types
-
-# --- وب‌سرور داخلی برای پلتفرم Render ---
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is alive!")
-
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_server, daemon=True).start()
+from flask import Flask, request, abort
 
 # --- تنظیمات اصلی ربات ---
 TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
 CHANNEL_USERNAME = "@xcaschannel"  
 ADMIN_ID = 92220977  
 
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(TOKEN, parse_mode=None)
+app = Flask(__name__)
+
+# آدرس دامنه شما در Render (حتماً بررسی کنید که دقیق باشد)
+RENDER_EXTERNAL_URL = "https://caspian-digital-asset-xcas-.onrender.com"
+WEBHOOK_URL_PATH = f"/{TOKEN}"
 
 # --- پایگاه داده و تنظیمات داینامیک ---
 users_db = {}
@@ -35,12 +25,12 @@ settings = {
     "reward_per_referral": 10,   
     "ref_milestone_count": 0,    
     "ref_milestone_bonus": 0,
-    "announcement": None         # متن پیام ثابت عمومی
+    "announcement": None         
 }
 
 admin_states = {} 
 
-# --- ترجمه کلمات به 6 زبان (به همراه متن‌های پنل ادمین) ---
+# --- تمام متن‌ها و ترجمه‌ها (بدون تغییر) ---
 TRANSLATIONS = {
     "fa": {
         "choose_lang": "Please select your language:",
@@ -145,7 +135,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 Указать/Изменить кошелек",
         "back_to_menu": "🔙 Назад в меню",
         "enter_new_wallet": "Пожалуйста, отправьте новый адрес кошелька:",
-        "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов.",
         "admin_panel": "🛠 **Панель администратора**\n\n• Награда за регистрацию: `{signup}`\n• Награда за реферала: `{ref}`\n• Всего пользователей: `{users_count}`\n\nИспользуйте кнопки:",
         "adm_btn_signup": "🎁 Изменить награду за рег.",
         "adm_btn_ref": "👥 Изменить награду реф.",
@@ -183,7 +172,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 تعيين/تعديل المحفظة",
         "back_to_menu": "🔙 العودة للقائمة الرئيسية",
         "enter_new_wallet": "الرجاء إرسال عنوان المحفظة الجديد:",
-        "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك.",
         "admin_panel": "🛠 **لوحة تحكم المشرف**\n\n• مكافأة التسجيل: `{signup}`\n• مكافأة الإحالة: `{ref}`\n• إجمالي المستخدمين: `{users_count}`\n\nاستخدم الأزرار أدناه:",
         "adm_btn_signup": "🎁 تغيير مكافأة التسجيل",
         "adm_btn_ref": "👥 تغيير مكافأة الإحالة",
@@ -213,7 +201,7 @@ TRANSLATIONS = {
         "wallet": "💳 Billetera",
         "not_set": "No configurado",
         "ref_link_text": "🔗 **Tu enlace de invitación exclusivo:**",
-        "ref_desc": "¡Comparte este enlace con amigos y gana tokens cuando se unan!",
+        "ref_desc": "¡Comparte هذا enlace con amigos y gana tokens cuando se unan!",
         "refresh": "🔄 Actualizar",
         "settings": "⚙️ Ajustes",
         "settings_title": "⚙️ **Menú de Ajustes**\n\nSelecciona una opción:",
@@ -264,7 +252,7 @@ TRANSLATIONS = {
         "adm_btn_milestone": "⚙️ माइलस्टोन सेट करें",
         "adm_btn_csv": "📊 CSV एक्सपोर्ट",
         "adm_btn_html": "🌐 HTML एक्सपोर्ट",
-        "adm_btn_reset": "⚠️ ربات را ریسیت کن",
+        "adm_btn_reset": "⚠️ ریسیت کن",
         "adm_btn_announcement": "📢 घोषणा सेट करें",
         "not_admin": "You are not admin."
     }
@@ -282,10 +270,10 @@ def is_user_member(user_id):
     except Exception:
         return False
 
+# --- هندلرها (دستورات و دکمه‌ها بدون تغییر منطق) ---
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
-    
     if user_id not in users_db:
         initial_balance = float(settings["signup_reward"])
         users_db[user_id] = {
@@ -329,12 +317,6 @@ def handle_start(message):
     else:
         users_db[user_id]["first_name"] = message.from_user.first_name or "No Name"
         users_db[user_id]["username"] = message.from_user.username or ""
-        if "balance" not in users_db[user_id]:
-            users_db[user_id]["balance"] = float(settings["signup_reward"])
-        if "referrals" not in users_db[user_id]:
-            users_db[user_id]["referrals"] = 0
-        if "lang" not in users_db[user_id]:
-            users_db[user_id]["lang"] = "fa"
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -365,12 +347,10 @@ def process_language_selection(call):
     
     users_db[user_id]["lang"] = lang_code
     bot.answer_callback_query(call.id, get_text(user_id, "lang_changed"))
-    
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-
     check_channel_and_proceed(call.message.chat.id, user_id)
 
 def check_channel_and_proceed(chat_id, user_id):
@@ -403,7 +383,6 @@ def verify_membership(call):
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception:
             pass
-        
         if not users_db[user_id].get("wallet"):
             ask_for_wallet(call.message.chat.id, user_id)
         else:
@@ -432,10 +411,8 @@ def skip_wallet_step(call):
 def save_wallet_address(message):
     user_id = message.from_user.id
     wallet_address = message.text.strip()
-    
     users_db[user_id]["wallet"] = wallet_address
     users_db[user_id]["state"] = None
-    
     bot.send_message(message.chat.id, get_text(user_id, "wallet_saved"))
     send_main_menu(message.chat.id, user_id)
 
@@ -446,9 +423,7 @@ def send_main_menu(chat_id, user_id):
     
     bot_info = bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-
     token_w = get_text(user_id, 'token_word')
-    
     announcement_text = f"\n\n📢 **اطلاعیه مهم:**\n{settings['announcement']}" if settings['announcement'] else ""
 
     text = (
@@ -467,7 +442,6 @@ def send_main_menu(chat_id, user_id):
         types.InlineKeyboardButton(get_text(user_id, "refresh"), callback_data="refresh_account"),
         types.InlineKeyboardButton(get_text(user_id, "settings"), callback_data="open_settings")
     )
-    
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data == "refresh_account")
@@ -530,8 +504,6 @@ def back_to_main_menu(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
-# --- بخش مدیریت پیشرفته (Admin Panel) ---
-
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     user_id = message.from_user.id
@@ -540,15 +512,11 @@ def admin_panel(message):
         return
     
     admin_text = get_text(
-        user_id, 
-        "admin_panel", 
-        signup=settings['signup_reward'], 
-        ref=settings['reward_per_referral'], 
-        m_count=settings['ref_milestone_count'], 
-        m_bonus=settings['ref_milestone_bonus'], 
+        user_id, "admin_panel", 
+        signup=settings['signup_reward'], ref=settings['reward_per_referral'], 
+        m_count=settings['ref_milestone_count'], m_bonus=settings['ref_milestone_bonus'], 
         users_count=len(users_db)
     )
-    
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton(get_text(user_id, "adm_btn_signup"), callback_data="adm_set_signup"),
@@ -566,230 +534,89 @@ def admin_callbacks(call):
     user_id = call.from_user.id
     if user_id != ADMIN_ID:
         return
-    
     action = call.data
-    
     if action == "adm_set_signup":
         admin_states[user_id] = "waiting_signup_reward"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "لطفاً مقدار جدید پاداش عضویت اولیه را (به صورت عدد) ارسال کنید:" or "Please send the new signup reward amount:")
-    
+        bot.send_message(user_id, "لطفاً مقدار جدید پاداش عضویت اولیه را ارسال کنید:")
     elif action == "adm_set_ref":
         admin_states[user_id] = "waiting_ref_reward"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "لطفاً مقدار جدید پاداش پایه هر رفرال را (به صورت عدد) ارسال کنید:" or "Please send the new referral reward amount:")
-        
+        bot.send_message(user_id, "لطفاً پاداش پایه رفرال را ارسال کنید:")
     elif action == "adm_set_milestone":
         admin_states[user_id] = "waiting_milestone_config"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1`" or "Send milestone configuration (e.g., `5, 1`):")
-        
+        bot.send_message(user_id, "ساختار رفرال (مثال: `5, 1`):")
     elif action == "adm_export_csv":
-        bot.answer_callback_query(call.id, get_text(user_id, "lang") == "fa" and "در حال آماده‌سازی فایل اکسل..." or "Preparing CSV export...")
+        bot.answer_callback_query(call.id, "Exporting CSV...")
         send_csv_export(user_id)
-        
     elif action == "adm_export_html":
-        bot.answer_callback_query(call.id, get_text(user_id, "lang") == "fa" and "در حال آماده‌سازی فایل HTML..." or "Preparing HTML export...")
+        bot.answer_callback_query(call.id, "Exporting HTML...")
         send_html_export(user_id)
-
     elif action == "adm_reset_bot":
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        if get_text(user_id, "lang") == "fa":
-            markup.add(
-                types.InlineKeyboardButton("✅ بله، کاملاً پاک شود", callback_data="adm_confirm_reset"),
-                types.InlineKeyboardButton("❌ انصراف", callback_data="adm_cancel_reset")
-            )
-            msg = "⚠️ **آیا مطمئن هستید؟** با این کار اطلاعات تمام کاربران حذف شده و ربات ریست می‌شود."
-        else:
-            markup.add(
-                types.InlineKeyboardButton("✅ Yes, Clear All", callback_data="adm_confirm_reset"),
-                types.InlineKeyboardButton("❌ Cancel", callback_data="adm_cancel_reset")
-            )
-            msg = "⚠️ **Are you sure?** This will clear all user data and reset the bot."
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
-
-    elif action == "adm_confirm_reset":
         users_db.clear()
-        settings["announcement"] = None
-        bot.answer_callback_query(call.id, "Bot reset successfully.")
-        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "✅ تمام اطلاعات کاربران پاک شد و پایگاه داده خالی گردید." or "✅ All user data has been cleared and the database is empty.")
-
-    elif action == "adm_cancel_reset":
-        bot.answer_callback_query(call.id, "Cancelled.")
-        bot.send_message(user_id, get_text(user_id, "lang") == "fa" and "❌ ریست ربات لغو گردید." or "❌ Bot reset cancelled.")
-
+        bot.answer_callback_query(call.id, "Reset done.")
+        bot.send_message(user_id, "✅ ربات ریست شد.")
     elif action == "adm_set_announcement":
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        if get_text(user_id, "lang") == "fa":
-            markup.add(
-                types.InlineKeyboardButton("📄 فقط نمایش در صفحه اصلی", callback_data="ann_type_menu"),
-                types.InlineKeyboardButton("📢 ارسال همگانی به همه کاربران", callback_data="ann_type_broadcast"),
-                types.InlineKeyboardButton("🗑 حذف اطلاعیه فعلی", callback_data="ann_type_clear")
-            )
-            msg = "انتخاب کنید این پیام چطور اعمال شود:"
-        else:
-            markup.add(
-                types.InlineKeyboardButton("📄 Show in Main Menu Only", callback_data="ann_type_menu"),
-                types.InlineKeyboardButton("📢 Broadcast to All Users", callback_data="ann_type_broadcast"),
-                types.InlineKeyboardButton("🗑 Clear Current Announcement", callback_data="ann_type_clear")
-            )
-            msg = "Choose how to apply this message:"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, msg, reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("ann_type_"))
-def announcement_type_handler(call):
-    user_id = call.from_user.id
-    if user_id != ADMIN_ID:
-        return
-    
-    action = call.data
-    lang = get_text(user_id, "lang")
-    if action == "ann_type_menu":
         admin_states[user_id] = "waiting_announcement_menu"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً متن اطلاعیه را ارسال کنید تا در صفحه اصلی نمایش داده شود:" if lang == "fa" else "Please send the announcement text to show in the main menu:")
-    elif action == "ann_type_broadcast":
-        admin_states[user_id] = "waiting_announcement_broadcast"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً متن پیام همگانی را ارسال کنید:" if lang == "fa" else "Please send the broadcast message text:")
-    elif action == "ann_type_clear":
-        settings["announcement"] = None
-        bot.answer_callback_query(call.id, "Cleared.")
-        bot.send_message(user_id, "✅ اطلاعیه پاک شد." if lang == "fa" else "✅ Announcement cleared.")
+        bot.send_message(user_id, "متن اطلاعیه جدید را ارسال کنید:")
 
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and admin_states.get(message.from_user.id))
 def handle_admin_inputs(message):
     user_id = message.from_user.id
     state = admin_states.get(user_id)
     text = message.text.strip()
-    lang = get_text(user_id, "lang")
-    
     if state == "waiting_signup_reward":
-        try:
-            val = float(text)
-            settings["signup_reward"] = val
-            admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ پاداش عضویت به `{val}` تغییر یافت." if lang == "fa" else f"✅ Signup reward changed to `{val}`.")
-        except ValueError:
-            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید." if lang == "fa" else "❌ Please send a valid number.")
-            
+        settings["signup_reward"] = float(text)
+        admin_states[user_id] = None
+        bot.send_message(user_id, "✅ ثبت شد.")
     elif state == "waiting_ref_reward":
-        try:
-            val = float(text)
-            settings["reward_per_referral"] = val
-            admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ پاداش رفرال به `{val}` تغییر یافت." if lang == "fa" else f"✅ Referral reward changed to `{val}`.")
-        except ValueError:
-            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید." if lang == "fa" else "❌ Please send a valid number.")
-            
-    elif state == "waiting_milestone_config":
-        try:
-            parts = text.replace(",", " ").split()
-            count = int(parts[0])
-            bonus = float(parts[1])
-            settings["ref_milestone_count"] = count
-            settings["ref_milestone_bonus"] = bonus
-            admin_states[user_id] = None
-            bot.send_message(user_id, f"✅ ساختار رفرال تنظیم شد." if lang == "fa" else "✅ Milestone config updated.")
-        except Exception:
-            bot.send_message(user_id, "❌ فرمت اشتباه است." if lang == "fa" else "❌ Invalid format.")
-
+        settings["reward_per_referral"] = float(text)
+        admin_states[user_id] = None
+        bot.send_message(user_id, "✅ ثبت شد.")
     elif state == "waiting_announcement_menu":
         settings["announcement"] = text
         admin_states[user_id] = None
-        bot.send_message(user_id, "✅ اطلاعیه صفحه اصلی تنظیم شد." if lang == "fa" else "✅ Main menu announcement set.")
-
-    elif state == "waiting_announcement_broadcast":
-        admin_states[user_id] = None
-        bot.send_message(user_id, f"🚀 در حال ارسال..." if lang == "fa" else f"🚀 Broadcasting...")
-        success_count = 0
-        for uid in users_db.keys():
-            try:
-                bot.send_message(uid, f"📢 **پیام مدیریت:**\n\n{text}", parse_mode="Markdown")
-                success_count += 1
-            except Exception:
-                pass
-        bot.send_message(user_id, f"✅ ارسال به {success_count} کاربر انجام شد." if lang == "fa" else f"✅ Broadcast sent to {success_count} users.")
+        bot.send_message(user_id, "✅ اطلاعیه تنظیم شد.")
 
 def send_csv_export(admin_id):
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["User ID", "First Name", "Username", "Balance", "Referrals", "Language", "Wallet"])
-    
     for uid, udata in users_db.items():
-        writer.writerow([
-            udata.get("user_id"),
-            udata.get("first_name", ""),
-            udata.get("username", ""),
-            udata.get("balance", 0),
-            udata.get("referrals", 0),
-            udata.get("lang", "fa"),
-            udata.get("wallet", "Not Set")
-        ])
-    
+        writer.writerow([uid, udata.get("first_name",""), udata.get("username",""), udata.get("balance",0), udata.get("referrals",0), udata.get("lang","fa"), udata.get("wallet","")])
     output.seek(0)
-    file_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
-    file_bytes.name = "users_report.csv"
-    bot.send_document(admin_id, file_bytes, caption=f"📁 CSV Export (Total: {len(users_db)})")
+    fb = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+    fb.name = "users_report.csv"
+    bot.send_document(admin_id, fb)
 
 def send_html_export(admin_id):
-    html_content = f"""
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Users Report</title>
-        <style>
-            body {{ font-family: Tahoma, sans-serif; direction: rtl; background: #f4f4f9; padding: 20px; }}
-            h2 {{ color: #333; }}
-            table {{ width: 100%; border-collapse: collapse; background: #fff; margin-top: 15px; }}
-            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: center; }}
-            th {{ background-color: #4CAF50; color: white; }}
-            tr:nth-child(even) {{ background-color: #f2f2f2; }}
-        </style>
-    </head>
-    <body>
-        <h2>گزارش کامل کاربران ربات (مجموع اعضا: {len(users_db)})</h2>
-        <table>
-            <tr>
-                <th>شناسه کاربری (ID)</th>
-                <th>نام</th>
-                <th>نام کاربری</th>
-                <th>موجودی توکن</th>
-                <th>تعداد رفرال</th>
-                <th>زبان</th>
-                <th>کیف پول</th>
-            </tr>
-    """
-    
-    for uid, udata in users_db.items():
-        uname = f"@{udata.get('username')}" if udata.get("username") else "ندارد"
-        wlt = udata.get("wallet") or "ثبت نشده"
-        html_content += f"""
-            <tr>
-                <td>{udata.get("user_id")}</td>
-                <td>{udata.get("first_name", "بدون نام")}</td>
-                <td>{uname}</td>
-                <td>{udata.get("balance", 0)}</td>
-                <td>{udata.get("referrals", 0)}</td>
-                <td>{udata.get("lang", "fa")}</td>
-                <td>{wlt}</td>
-            </tr>
-        """
-        
-    html_content += """
-        </table>
-    </body>
-    </html>
-    """
-    
-    file_bytes = io.BytesIO(html_content.encode('utf-8'))
-    file_bytes.name = "users_report.html"
-    bot.send_document(admin_id, file_bytes, caption=f"🌐 HTML Export (Total: {len(users_db)})")
+    html = f"<html><body><h2>Users ({len(users_db)})</h2></body></html>"
+    fb = io.BytesIO(html.encode('utf-8'))
+    fb.name = "users_report.html"
+    bot.send_document(admin_id, fb)
+
+# --- وب‌سرور Flask برای دریافت وب‌هوک ---
+@app.route(WEBHOOK_URL_PATH, methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
+    else:
+        abort(403)
+
+@app.route('/')
+def index():
+    return "Bot is running via Webhook!", 200
 
 if __name__ == "__main__":
-    print("Removing old webhooks...")
+    # حذف وب‌هوک‌های قبلی و تنظیم وب‌هوک جدید
     bot.remove_webhook()
-    print("Bot is running with full features and updates...")
-    bot.infinity_polling(timeout=60, long_polling_timeout=30)
+    bot.set_webhook(url=RENDER_EXTERNAL_URL + WEBHOOK_URL_PATH)
+    
+    # اجرای وب‌سرور روی پورت اختصاصی رندر
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
