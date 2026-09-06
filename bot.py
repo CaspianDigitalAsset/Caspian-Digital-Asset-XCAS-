@@ -34,12 +34,13 @@ settings = {
     "signup_reward": 0,          
     "reward_per_referral": 10,   
     "ref_milestone_count": 0,    
-    "ref_milestone_bonus": 0     
+    "ref_milestone_bonus": 0,
+    "announcement": None         # متن پیام ثابت عمومی
 }
 
 admin_states = {} 
 
-# --- ترجمه کلمات به 6 زبان ---
+# --- ترجمه کلمات به 6 زبان (به همراه متن‌های پنل ادمین) ---
 TRANSLATIONS = {
     "fa": {
         "choose_lang": "Please select your language:",
@@ -68,7 +69,16 @@ TRANSLATIONS = {
         "set_wallet": "💳 ثبت/ویرایش کیف پول",
         "back_to_menu": "🔙 بازگشت به منوی اصلی",
         "enter_new_wallet": "لطفاً آدرس جدید کیف پول خود را ارسال کنید:",
-        "ref_reward_msg": "🎉 کاربر عزیز {name} با لینک اختصاصی شما وارد ربات شد!\n🎁 مقدار {reward} توکن به بالانس شما اضافه شد."
+        "ref_reward_msg": "🎉 کاربر عزیز {name} با لینک اختصاصی شما وارد ربات شد!\n🎁 مقدار {reward} توکن به بالانس شما اضافه شد.",
+        "admin_panel": "🛠 **پنل مدیریت پیشرفته ربات**\n\n• پاداش عضویت اولیه: `{signup}` توکن\n• پاداش پایه هر رفرال: `{ref}` توکن\n• ساختار تشویقی: هر `{m_count}` رفرال، مقدار `{m_bonus}` توکن اضافه\n• تعداد کل کاربران ثبت‌شده: `{users_count}` نفر\n\nاز دکمه‌های زیر استفاده کنید:",
+        "adm_btn_signup": "🎁 تغییر پاداش عضویت",
+        "adm_btn_ref": "👥 تغییر پاداش رفرال",
+        "adm_btn_milestone": "⚙️ تنظیم ساختار رفرال",
+        "adm_btn_csv": "📊 خروجی اکسل (CSV)",
+        "adm_btn_html": "🌐 خروجی HTML",
+        "adm_btn_reset": "⚠️ ریست کامل ربات (حذف کاربران)",
+        "adm_btn_announcement": "📢 تنظیم پیام ثابت/همگانی",
+        "not_admin": "You are not admin."
     },
     "en": {
         "choose_lang": "Please select your language:",
@@ -97,7 +107,16 @@ TRANSLATIONS = {
         "set_wallet": "💳 Set/Edit Wallet",
         "back_to_menu": "🔙 Back to Main Menu",
         "enter_new_wallet": "Please send your new wallet address:",
-        "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance."
+        "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance.",
+        "admin_panel": "🛠 **Advanced Admin Panel**\n\n• Signup Reward: `{signup}` tokens\n• Referral Reward: `{ref}` tokens\n• Milestone: Every `{m_count}` refs, `{m_bonus}` extra tokens\n• Total Registered Users: `{users_count}`\n\nUse buttons below:",
+        "adm_btn_signup": "🎁 Change Signup Reward",
+        "adm_btn_ref": "👥 Change Referral Reward",
+        "adm_btn_milestone": "⚙️ Set Referral Milestone",
+        "adm_btn_csv": "📊 Export CSV",
+        "adm_btn_html": "🌐 Export HTML",
+        "adm_btn_reset": "⚠️ Reset Bot (Clear Users)",
+        "adm_btn_announcement": "📢 Set Announcement",
+        "not_admin": "You are not admin."
     },
     "ru": {
         "choose_lang": "Please select your language:",
@@ -126,7 +145,16 @@ TRANSLATIONS = {
         "set_wallet": "💳 Указать/Изменить кошелек",
         "back_to_menu": "🔙 Назад в меню",
         "enter_new_wallet": "Пожалуйста, отправьте новый адрес кошелька:",
-        "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов."
+        "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов.",
+        "admin_panel": "🛠 **Панель администратора**\n\n• Награда за регистрацию: `{signup}`\n• Награда за реферала: `{ref}`\n• Всего пользователей: `{users_count}`\n\nИспользуйте кнопки:",
+        "adm_btn_signup": "🎁 Изменить награду за рег.",
+        "adm_btn_ref": "👥 Изменить награду реф.",
+        "adm_btn_milestone": "⚙️ Настроить бонус",
+        "adm_btn_csv": "📊 Экспорт CSV",
+        "adm_btn_html": "🌐 Экспорт HTML",
+        "adm_btn_reset": "⚠️ Сбросить бот",
+        "adm_btn_announcement": "📢 Объявление",
+        "not_admin": "You are not admin."
     },
     "ar": {
         "choose_lang": "Please select your language:",
@@ -155,7 +183,16 @@ TRANSLATIONS = {
         "set_wallet": "💳 تعيين/تعديل المحفظة",
         "back_to_menu": "🔙 العودة للقائمة الرئيسية",
         "enter_new_wallet": "الرجاء إرسال عنوان المحفظة الجديد:",
-        "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك."
+        "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك.",
+        "admin_panel": "🛠 **لوحة تحكم المشرف**\n\n• مكافأة التسجيل: `{signup}`\n• مكافأة الإحالة: `{ref}`\n• إجمالي المستخدمين: `{users_count}`\n\nاستخدم الأزرار أدناه:",
+        "adm_btn_signup": "🎁 تغيير مكافأة التسجيل",
+        "adm_btn_ref": "👥 تغيير مكافأة الإحالة",
+        "adm_btn_milestone": "⚙️ إعدادات الإحالة",
+        "adm_btn_csv": "📊 تصدير CSV",
+        "adm_btn_html": "🌐 تصدير HTML",
+        "adm_btn_reset": "⚠️ إعادة ضبط البوت",
+        "adm_btn_announcement": "📢 تعيين رسالة عامة",
+        "not_admin": "You are not admin."
     },
     "es": {
         "choose_lang": "Please select your language:",
@@ -184,9 +221,15 @@ TRANSLATIONS = {
         "set_wallet": "💳 Configurar/Editar Billetera",
         "back_to_menu": "🔙 Volver al Menú Principal",
         "enter_new_wallet": "Por favor, envíe la nueva dirección de su billetera:",
-        "admin_panel": "🛠 **Panel de Administración**",
-        "not_admin": "No tienes acceso de administrador.",
-        "ref_reward_msg": "🎉 ¡El usuario {name} se unió con tu enlace!\n🎁 Se añadieron {reward} tokens a tu saldo."
+        "admin_panel": "🛠 **Panel de Administración**\n\n• Recompensa de registro: `{signup}`\n• Recompensa de referido: `{ref}`\n• Total de usuarios: `{users_count}`\n\nUsa los botones:",
+        "adm_btn_signup": "🎁 Cambiar rec. registro",
+        "adm_btn_ref": "👥 Cambiar rec. referido",
+        "adm_btn_milestone": "⚙️ Config. hito",
+        "adm_btn_csv": "📊 Exportar CSV",
+        "adm_btn_html": "🌐 Exportar HTML",
+        "adm_btn_reset": "⚠️ Reiniciar Bot",
+        "adm_btn_announcement": "📢 Anuncio",
+        "not_admin": "You are not admin."
     },
     "hi": {
         "choose_lang": "Please select your language:",
@@ -198,7 +241,7 @@ TRANSLATIONS = {
         "ask_wallet": "💳 कृपया अपना वॉलेट पता भेजें (प्राथमिकता Tonkeeper):\n\n*(या इसे छोड़ने और बाद में सेटिंग में जोड़ने के लिए नीचे दिए गए बटन पर क्लिक करें)*",
         "skip_wallet": "⏭ छोड़ें (पैनल में जाएं)",
         "wallet_saved": "✅ वॉलेट का पता सफलतापूर्वक सहेज लिया गया!",
-        "wallet_skipped": "⚠️ वॉलेट सेटअप छोड़ दिया गया। आप इसे सेटिंग से कभी भी सेट कर सकते हैं।",
+        "wallet_skipped": "⚠️ वॉलेट सेटअप छोड़ दिया गया। आप इसे सेटिंग से कभी भी सेट कर सकते हैं.",
         "panel_title": "📊 **आपका यूजर पैनल**",
         "username": "👤 यूजरनेम",
         "balance": "💰 टोकन बैलेंस",
@@ -215,15 +258,21 @@ TRANSLATIONS = {
         "set_wallet": "💳 वॉलेट सेट/संपादित करें",
         "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
         "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
-        "admin_panel": "🛠 **एडमिन पैनल**",
-        "not_admin": "आपके पास एडमिन तक पहुंच नहीं है।",
-        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए गए हैं."
+        "admin_panel": "🛠 **एडमिन पैनल**\n\n• साइनअप रिवॉर्ड: `{signup}`\n• रेफरल रिवॉर्ड: `{ref}`\n• कुल उपयोगकर्ता: `{users_count}`\n\nबटन का उपयोग करें:",
+        "adm_btn_signup": "🎁 साइनअप रिवॉर्ड बदलें",
+        "adm_btn_ref": "👥 रेफरल रिवॉर्ड बदलें",
+        "adm_btn_milestone": "⚙️ माइलस्टोन सेट करें",
+        "adm_btn_csv": "📊 CSV एक्सपोर्ट",
+        "adm_btn_html": "🌐 HTML एक्सपोर्ट",
+        "adm_btn_reset": "⚠️ ربات را ریسیت کن",
+        "adm_btn_announcement": "📢 घोषणा सेट करें",
+        "not_admin": "You are not admin."
     }
 }
 
 def get_text(user_id, key, **kwargs):
     lang = users_db.get(user_id, {}).get("lang", "fa")
-    text_template = TRANSLATIONS.get(lang, TRANSLATIONS["fa"]).get(key, TRANSLATIONS["fa"][key])
+    text_template = TRANSLATIONS.get(lang, TRANSLATIONS["fa"]).get(key, TRANSLATIONS["fa"].get(key, key))
     return text_template.format(**kwargs)
 
 def is_user_member(user_id):
@@ -237,7 +286,6 @@ def is_user_member(user_id):
 def handle_start(message):
     user_id = message.from_user.id
     
-    # ثبت نام اولیه یا آپدیت اطلاعات پایه کاربر در صورت عدم حضور در دیتابیس
     if user_id not in users_db:
         initial_balance = float(settings["signup_reward"])
         users_db[user_id] = {
@@ -279,9 +327,14 @@ def handle_start(message):
                         except Exception:
                             pass
     else:
-        # بروزرسانی نام و یوزرنیم در صورت تغییر
         users_db[user_id]["first_name"] = message.from_user.first_name or "No Name"
         users_db[user_id]["username"] = message.from_user.username or ""
+        if "balance" not in users_db[user_id]:
+            users_db[user_id]["balance"] = float(settings["signup_reward"])
+        if "referrals" not in users_db[user_id]:
+            users_db[user_id]["referrals"] = 0
+        if "lang" not in users_db[user_id]:
+            users_db[user_id]["lang"] = "fa"
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
@@ -395,6 +448,10 @@ def send_main_menu(chat_id, user_id):
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
 
     token_w = get_text(user_id, 'token_word')
+    
+    # اگر پیام عمومی/ثابت تنظیم شده باشد، در صفحه اصلی نمایش داده می‌شود
+    announcement_text = f"\n\n📢 **اطلاعیه مهم:**\n{settings['announcement']}" if settings['announcement'] else ""
+
     text = (
         f"{get_text(user_id, 'panel_title')}\n\n"
         f"{get_text(user_id, 'username')}: `{username}`\n"
@@ -403,6 +460,7 @@ def send_main_menu(chat_id, user_id):
         f"{get_text(user_id, 'wallet')}: `{wallet}`\n\n"
         f"{get_text(user_id, 'ref_link_text')}\n`{ref_link}`\n\n"
         f"{get_text(user_id, 'ref_desc')}"
+        f"{announcement_text}"
     )
     
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -473,31 +531,35 @@ def back_to_main_menu(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
-# --- بخش مدیریت پیشرفته (Admin Panel) ---
+# --- بخش مدیریت پیشرفته (Admin Panel با قابلیت‌های کامل) ---
 
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     user_id = message.from_user.id
     if user_id != ADMIN_ID:
-        bot.send_message(user_id, "You are not admin.")
+        bot.send_message(user_id, get_text(user_id, "not_admin"))
         return
     
-    admin_text = (
-        f"🛠 **پنل مدیریت پیشرفته ربات**\n\n"
-        f"• پاداش عضویت اولیه: `{settings['signup_reward']}` توکن\n"
-        f"• پاداش پایه هر رفرال: `{settings['reward_per_referral']}` توکن\n"
-        f"• ساختار تشویقی: هر `{settings['ref_milestone_count']}` رفرال، مقدار `{settings['ref_milestone_bonus']}` توکن اضافه\n"
-        f"• تعداد کل کاربران ثبت‌شده: `{len(users_db)}` نفر\n\n"
-        f"از دکمه‌های زیر برای تغییر تنظیمات یا دریافت خروجی استفاده کنید:"
+    # پنل ادمین بر اساس زبان انتخاب‌شده توسط خودِ ادمین نمایش داده می‌شود
+    admin_text = get_text(
+        user_id, 
+        "admin_panel", 
+        signup=settings['signup_reward'], 
+        ref=settings['reward_per_referral'], 
+        m_count=settings['ref_milestone_count'], 
+        m_bonus=settings['ref_milestone_bonus'], 
+        users_count=len(users_db)
     )
     
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("🎁 تغییر پاداش عضویت", callback_data="adm_set_signup"),
-        types.InlineKeyboardButton("👥 تغییر پاداش رفرال", callback_data="adm_set_ref"),
-        types.InlineKeyboardButton("⚙️ تنظیم ساختار رفرال", callback_data="adm_set_milestone"),
-        types.InlineKeyboardButton("📊 خروجی اکسل (CSV)", callback_data="adm_export_csv"),
-        types.InlineKeyboardButton("🌐 خروجی HTML", callback_data="adm_export_html")
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_signup"), callback_data="adm_set_signup"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_ref"), callback_data="adm_set_ref"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_milestone"), callback_data="adm_set_milestone"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_csv"), callback_data="adm_export_csv"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_html"), callback_data="adm_export_html"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_announcement"), callback_data="adm_set_announcement"),
+        types.InlineKeyboardButton(get_text(user_id, "adm_btn_reset"), callback_data="adm_reset_bot")
     )
     bot.send_message(user_id, admin_text, reply_markup=markup, parse_mode="Markdown")
 
@@ -522,7 +584,7 @@ def admin_callbacks(call):
     elif action == "adm_set_milestone":
         admin_states[user_id] = "waiting_milestone_config"
         bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1` (یعنی هر ۵ رفرال، ۱ توکن اضافه پاداش)")
+        bot.send_message(user_id, "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1`")
         
     elif action == "adm_export_csv":
         bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل اکسل...")
@@ -531,6 +593,56 @@ def admin_callbacks(call):
     elif action == "adm_export_html":
         bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل HTML...")
         send_html_export(user_id)
+
+    elif action == "adm_reset_bot":
+        # دکمه ریست کل ربات و پاکسازی کاربران
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("✅ بله، کاملاً پاک شود", callback_data="adm_confirm_reset"),
+            types.InlineKeyboardButton("❌ انصراف", callback_data="adm_cancel_reset")
+        )
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "⚠️ **آیا مطمئن هستید؟** با این کار اطلاعات تمام کاربران حذف شده و ربات ریست می‌شود.", reply_markup=markup, parse_mode="Markdown")
+
+    elif action == "adm_confirm_reset":
+        users_db.clear()
+        settings["announcement"] = None
+        bot.answer_callback_query(call.id, "ربات با موفقیت ریست شد.")
+        bot.send_message(user_id, "✅ تمام اطلاعات کاربران پاک شد و پایگاه داده خالی گردید.")
+
+    elif action == "adm_cancel_reset":
+        bot.answer_callback_query(call.id, "عملیات لغو شد.")
+        bot.send_message(user_id, "❌ ریست ربات لغو گردید.")
+
+    elif action == "adm_set_announcement":
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            types.InlineKeyboardButton("📄 فقط نمایش در صفحه اصلی", callback_data="ann_type_menu"),
+            types.InlineKeyboardButton("📢 ارسال همگانی به همه کاربران", callback_data="ann_type_broadcast"),
+            types.InlineKeyboardButton("🗑 حذف اطلاعیه فعلی", callback_data="ann_type_clear")
+        )
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "انتخاب کنید این پیام چطور اعمال شود:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("ann_type_"))
+def announcement_type_handler(call):
+    user_id = call.from_user.id
+    if user_id != ADMIN_ID:
+        return
+    
+    action = call.data
+    if action == "ann_type_menu":
+        admin_states[user_id] = "waiting_announcement_menu"
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "متن اطلاعیه را ارسال کنید تا ثابت در صفحه اصلی کاربران نمایش داده شود:")
+    elif action == "ann_type_broadcast":
+        admin_states[user_id] = "waiting_announcement_broadcast"
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "متن پیام همگانی را ارسال کنید تا بلافاصله به تمامی کاربران ارسال شود:")
+    elif action == "ann_type_clear":
+        settings["announcement"] = None
+        bot.answer_callback_query(call.id, "اطلاعیه پاک شد.")
+        bot.send_message(user_id, "✅ متن اطلاعیه صفحه اصلی حذف گردید.")
 
 @bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and admin_states.get(message.from_user.id))
 def handle_admin_inputs(message):
@@ -567,6 +679,23 @@ def handle_admin_inputs(message):
             bot.send_message(user_id, f"✅ ساختار رفرال تنظیم شد:\nهر `{count}` رفرال = `{bonus}` توکن پاداش اضافه.")
         except Exception:
             bot.send_message(user_id, "❌ فرمت اشتباه است. دو عدد مانند `5, 1` ارسال کنید.")
+
+    elif state == "waiting_announcement_menu":
+        settings["announcement"] = text
+        admin_states[user_id] = None
+        bot.send_message(user_id, "✅ اطلاعیه ثبت شد و از این پس در صفحه اصلی پنل تمامی کاربران نمایش داده خواهد شد.")
+
+    elif state == "waiting_announcement_broadcast":
+        admin_states[user_id] = None
+        bot.send_message(user_id, f"🚀 در حال ارسال پیام همگانی به {len(users_db)} کاربر...")
+        success_count = 0
+        for uid in users_db.keys():
+            try:
+                bot.send_message(uid, f"📢 **پیام مدیریت:**\n\n{text}", parse_mode="Markdown")
+                success_count += 1
+            except Exception:
+                pass
+        bot.send_message(user_id, f"✅ پیام همگانی با موفقیت به {success_count} کاربر ارسال شد.")
 
 def send_csv_export(admin_id):
     output = io.StringIO()
@@ -646,5 +775,5 @@ def send_html_export(admin_id):
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running with full user collection fix...")
+    print("Bot is running with full features and updates...")
     bot.infinity_polling()
