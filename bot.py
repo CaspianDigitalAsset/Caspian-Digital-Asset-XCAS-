@@ -1,5 +1,23 @@
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from telebot import types
+
+# --- وب‌سرور داخلی برای راضی کردن پورت رندر ---
+class SimpleHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive!")
+
+def run_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
+    server.serve_forever()
+
+# اجرای وب‌سرور در پس‌زمینه برای جلوگیری از خطای Timeout
+threading.Thread(target=run_server, daemon=True).start()
 
 # --- تنظیمات اصلی ربات ---
 TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
@@ -9,7 +27,6 @@ ADMIN_ID = 92220977  # آیدی عددی ادمین
 bot = telebot.TeleBot(TOKEN)
 
 # --- پایگاه داده موقت (برای ذخیره اطلاعات کاربران) ---
-# ساختار: { user_id: {"balance": 0, "referrals": 0, "referred_by": None} }
 users_db = {}
 
 # تنظیمات قابل تغییر توسط ادمین
@@ -44,16 +61,13 @@ def handle_start(message):
         inviter_id_str = args[1]
         if inviter_id_str.isdigit():
             inviter_id = int(inviter_id_str)
-            # بررسی اینکه کاربر خودش را دعوت نکند و قبلاً دعوت نشده باشد
             if inviter_id != user_id and users_db[user_id]["referred_by"] is None:
                 if inviter_id in users_db:
                     users_db[user_id]["referred_by"] = inviter_id
-                    # افزایش آمار و بالانس معرف
                     users_db[inviter_id]["referrals"] += 1
                     reward = settings["reward_per_referral"]
                     users_db[inviter_id]["balance"] += reward
                     
-                    # اطلاع‌رسانی به دعوت‌کننده
                     try:
                         bot.send_message(
                             inviter_id,
@@ -82,7 +96,6 @@ def handle_start(message):
         )
         return
 
-    # ارسال پنل کاربری در صورت عضویت
     send_main_menu(message.chat.id, user_id)
 
 def send_main_menu(chat_id, user_id):
@@ -161,5 +174,5 @@ def set_reward(message):
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running...")
+    print("Bot is running with dummy port server...")
     bot.infinity_polling()
