@@ -13,7 +13,7 @@ ADMIN_ID = 92220977
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
 app = Flask(__name__)
 
-# آدرس دامنه شما در Render (حتماً بررسی کنید که دقیق باشد)
+# آدرس دامنه شما در Render
 RENDER_EXTERNAL_URL = "https://caspian-digital-asset-xcas-.onrender.com"
 WEBHOOK_URL_PATH = f"/{TOKEN}"
 
@@ -30,7 +30,7 @@ settings = {
 
 admin_states = {} 
 
-# --- تمام متن‌ها و ترجمه‌ها (بدون تغییر) ---
+# --- تمام متن‌ها و ترجمه‌ها ---
 TRANSLATIONS = {
     "fa": {
         "choose_lang": "Please select your language:",
@@ -201,7 +201,7 @@ TRANSLATIONS = {
         "wallet": "💳 Billetera",
         "not_set": "No configurado",
         "ref_link_text": "🔗 **Tu enlace de invitación exclusivo:**",
-        "ref_desc": "¡Comparte هذا enlace con amigos y gana tokens cuando se unan!",
+        "ref_desc": "¡Comparte este enlace con amigos y gana tokens cuando se unan!",
         "refresh": "🔄 Actualizar",
         "settings": "⚙️ Ajustes",
         "settings_title": "⚙️ **Menú de Ajustes**\n\nSelecciona una opción:",
@@ -252,7 +252,7 @@ TRANSLATIONS = {
         "adm_btn_milestone": "⚙️ माइलस्टोन सेट करें",
         "adm_btn_csv": "📊 CSV एक्सपोर्ट",
         "adm_btn_html": "🌐 HTML एक्सपोर्ट",
-        "adm_btn_reset": "⚠️ ریسیت کن",
+        "adm_btn_reset": "⚠️ ریست کن",
         "adm_btn_announcement": "📢 घोषणा सेट करें",
         "not_admin": "You are not admin."
     }
@@ -270,7 +270,7 @@ def is_user_member(user_id):
     except Exception:
         return False
 
-# --- هندلرها (دستورات و دکمه‌ها بدون تغییر منطق) ---
+# --- هندلرها ---
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
@@ -613,7 +613,7 @@ def index():
     return "Bot is running via Webhook!", 200
 
 if __name__ == "__main__":
-    # حذف وب‌هوک‌های قبلی و تنظیم وب‌هوک جدید
+    # تنظیم مجدد وب‌هوک روی سرور
     bot.remove_webhook()
     bot.set_webhook(url=RENDER_EXTERNAL_URL + WEBHOOK_URL_PATH)
     
