@@ -4,7 +4,7 @@ from telebot import types
 # --- تنظیمات اصلی ربات ---
 TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
 CHANNEL_USERNAME = "@xcaschannel"  # یوزرنیم کانال شما
-ADMIN_ID = 589412345  # جایگزین کنید با تلگرام آیدی عددی خودتان (Admin Telegram ID)
+ADMIN_ID = 92220977  # جایگزین کنید با تلگرام آیدی عددی خودتان (Admin Telegram ID)
 
 bot = telebot.TeleBot(TOKEN)
 
