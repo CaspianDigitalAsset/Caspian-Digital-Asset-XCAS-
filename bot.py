@@ -14,7 +14,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode=None)
 app = Flask(__name__)
 
 # آدرس دامنه شما در Render
-RENDER_EXTERNAL_URL = "https://caspian-digital-asset-xcas-.onrender.com"
+RENDER_EXTERNAL_URL = "https://caspian-digital-asset-xcas.onrender.com"
 WEBHOOK_URL_PATH = f"/{TOKEN}"
 
 # --- پایگاه داده و تنظیمات داینامیک ---
