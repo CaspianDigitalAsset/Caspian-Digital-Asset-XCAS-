@@ -16,7 +16,6 @@ def run_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# اجرای وب‌سرور در پس‌زمینه برای جلوگیری از خطای Timeout
 threading.Thread(target=run_server, daemon=True).start()
 
 # --- تنظیمات اصلی ربات ---
@@ -26,36 +25,226 @@ ADMIN_ID = 92220977  # آیدی عددی ادمین
 
 bot = telebot.TeleBot(TOKEN)
 
-# --- پایگاه داده موقت (برای ذخیره اطلاعات کاربران) ---
+# --- پایگاه داده موقت کاربران ---
+# ساختار: { user_id: {"balance": 0, "referrals": 0, "referred_by": None, "lang": "fa", "wallet": None, "state": None} }
 users_db = {}
 
-# تنظیمات قابل تغییر توسط ادمین
 settings = {
-    "reward_per_referral": 10  # تعداد توکنی که به ازای هر رفرال داده می‌شود
+    "reward_per_referral": 10
 }
 
+# --- ترجمه کلمات به 6 زبان ---
+TRANSLATIONS = {
+    "fa": {
+        "choose_lang": "لطفاً زبان خود را انتخاب کنید:",
+        "lang_changed": "زبان با موفقیت به فارسی تغییر یافت.",
+        "join_channel": "📢 عضویت در کانال",
+        "check_membership": "✅ عضو شدم، بررسی کن",
+        "not_member": "❌ شما هنوز در کانال عضو نشده‌اید!",
+        "welcome": "سلام {name}! 👋\n\nبرای استفاده از ربات، ابتدا باید در کانال ما عضو شوید:\n{channel}\n\nپس از عضویت روی دکمه زیر کلیک کنید.",
+        "ask_wallet": "💳 لطفاً آدرس کیف پول خود (ترجیحاً تون‌کیپر - Tonkeeper) را ارسال کنید:\n\n*(یا می‌توانید روی دکمه زیر کلیک کنید تا این مرحله را رد کرده و بعداً در تنظیمات وارد کنید)*",
+        "skip_wallet": "⏭ رد کردن (ورود به پنل)",
+        "wallet_saved": "✅ آدرس کیف پول شما با موفقیت ذخیره شد!",
+        "wallet_skipped": "⚠️ ثبت کیف پول رد شد. هر زمان خواستید می‌توانید از بخش تنظیمات آن را وارد کنید.",
+        "panel_title": "📊 **پنل کاربری شما**",
+        "username": "👤 نام کاربری",
+        "balance": "💰 موجودی توکن",
+        "referrals": "👥 تعداد زیرمجموعه‌ها",
+        "wallet": "💳 کیف پول",
+        "not_set": "تنظیم نشده",
+        "ref_link_text": "🔗 **لینک دعوت اختصاصی شما:**",
+        "ref_desc": "با ارسال این لینک به دوستان خود و عضویت آن‌ها در کانال، توکن پاداش بگیرید!",
+        "refresh": "🔄 بروزرسانی حساب",
+        "settings": "⚙️ تنظیمات",
+        "settings_title": "⚙️ **بخش تنظیمات**\n\nگزینه مورد نظر خود را انتخاب کنید:",
+        "change_lang": " تغيير زبان 🌐 / Change Language",
+        "set_wallet": "💳 ثبت/ویرایش کیف پول",
+        "back_to_menu": "🔙 بازگشت به منوی اصلی",
+        "enter_new_wallet": "لطفاً آدرس جدید کیف پول خود را ارسال کنید:",
+        "admin_panel": "🛠 **پنل مدیریت ربات**",
+        "not_admin": "شما دسترسی ادمین ندارید.",
+        "ref_reward_msg": "🎉 کاربر عزیز {name} با لینک اختصاصی شما وارد ربات شد!\n🎁 مقدار {reward} توکن به بالانس شما اضافه شد."
+    },
+    "en": {
+        "choose_lang": "Please select your language:",
+        "lang_changed": "Language successfully changed to English.",
+        "join_channel": "📢 Join Channel",
+        "check_membership": "✅ I've joined, check it",
+        "not_member": "❌ You are not a member of the channel yet!",
+        "welcome": "Hello {name}! 👋\n\nTo use the bot, you must first join our channel:\n{channel}\n\nClick the button below after joining.",
+        "ask_wallet": "💳 Please send your wallet address (preferably Tonkeeper):\n\n*(Or click the button below to skip and set it later in settings)*",
+        "skip_wallet": "⏭ Skip (Enter Panel)",
+        "wallet_saved": "✅ Wallet address saved successfully!",
+        "wallet_skipped": "⚠️ Wallet setup skipped. You can set it anytime from settings.",
+        "panel_title": "📊 **Your User Panel**",
+        "username": "👤 Username",
+        "balance": "💰 Token Balance",
+        "referrals": "👥 Referrals",
+        "wallet": "💳 Wallet",
+        "not_set": "Not Set",
+        "ref_link_text": "🔗 **Your Exclusive Invite Link:**",
+        "ref_desc": "Share this link with friends and earn tokens when they join the channel!",
+        "refresh": "🔄 Refresh Account",
+        "settings": "⚙️ Settings",
+        "settings_title": "⚙️ **Settings Menu**\n\nChoose an option:",
+        "change_lang": "🌐 Change Language",
+        "set_wallet": "💳 Set/Edit Wallet",
+        "back_to_menu": "🔙 Back to Main Menu",
+        "enter_new_wallet": "Please send your new wallet address:",
+        "admin_panel": "🛠 **Admin Panel**",
+        "not_admin": "You don't have admin access.",
+        "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance."
+    },
+    "ru": {
+        "choose_lang": "Пожалуйста, выберите язык:",
+        "lang_changed": "Язык успешно изменен на русский.",
+        "join_channel": "📢 Подписаться на канал",
+        "check_membership": "✅ Я подписался, проверить",
+        "not_member": "❌ Вы еще не подписаны на канал!",
+        "welcome": "Привет, {name}! 👋\n\nЧтобы использовать бота, подпишитесь на наш канал:\n{channel}\n\nПосле подписки нажмите кнопку ниже.",
+        "ask_wallet": "💳 Пожалуйста, отправьте адрес вашего кошелька (предпочтительно Tonkeeper):\n\n*(Или нажмите кнопку ниже, чтобы пропустить и настроить позже)*",
+        "skip_wallet": "⏭ Пропустить (В меню)",
+        "wallet_saved": "✅ Адрес кошелька успешно сохранен!",
+        "wallet_skipped": "⚠️ Настройка кошелька пропущена. Вы можете указать его в настройках.",
+        "panel_title": "📊 **Ваша панель управления**",
+        "username": "👤 Имя пользователя",
+        "balance": "💰 Баланс токенов",
+        "referrals": "👥 Рефералы",
+        "wallet": "💳 Кошелек",
+        "not_set": "Не указан",
+        "ref_link_text": "🔗 **Ваша реферальная ссылка:**",
+        "ref_desc": "Поделитесь ссылкой с друзьями и получайте токены за их подписку!",
+        "refresh": "🔄 Обновить",
+        "settings": "⚙️ Настройки",
+        "settings_title": "⚙️ **Меню настроек**\n\nВыберите опцию:",
+        "change_lang": "🌐 Изменить язык",
+        "set_wallet": "💳 Указать/Изменить кошелек",
+        "back_to_menu": "🔙 Назад в меню",
+        "enter_new_wallet": "Пожалуйста, отправьте новый адрес кошелька:",
+        "admin_panel": "🛠 **Панель администратора**",
+        "not_admin": "У вас нет прав администратора.",
+        "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов."
+    },
+    "ar": {
+        "choose_lang": "الرجاء اختيار لغتك:",
+        "lang_changed": "تم تغيير لغة التطبيق إلى العربية بنجاح.",
+        "join_channel": "📢 اشتراك في القناة",
+        "check_membership": "✅ لقد اشتركت، تحقق",
+        "not_member": "❌ أنت لم تشترك في القناة بعد!",
+        "welcome": "أهلاً بك {name}! 👋\n\nلاستخدام البوت، يجب عليك أولاً الاشتراك في قناتنا:\n{channel}\n\nاضغط على الزر أدناه بعد الاشتراك.",
+        "ask_wallet": "💳 الرجاء إرسال عنوان محفظتك (يفضل Tonkeeper):\n\n*(أو يمكنك تخطي هذه الخطوة وإضافتها لاحقاً من الإعدادات)*",
+        "skip_wallet": "⏭ تخطي (الدخول للقائمة)",
+        "wallet_saved": "✅ تم حفظ عنوان المحفظة بنجاح!",
+        "wallet_skipped": "⚠️ تم تخطي المحفظة. يمكنك إضافتها في أي وقت من الإعدادات.",
+        "panel_title": "📊 **لوحة التحكم الخاصة بك**",
+        "username": "👤 اسم المستخدم",
+        "balance": "💰 رصيد الرموز",
+        "referrals": "👥 عدد الإحالات",
+        "wallet": "💳 المحفظة",
+        "not_set": "غير محدد",
+        "ref_link_text": "🔗 **رابط الدعوة الخاص بك:**",
+        "ref_desc": "شارك هذا الرابط مع أصدقائك واكسب رموزاً عند اشتراكهم في القناة!",
+        "refresh": "🔄 تحديث الحساب",
+        "settings": "⚙️ الإعدادات",
+        "settings_title": "⚙️ **قائمة الإعدادات**\n\nاختر ما يناسبك:",
+        "change_lang": "🌐 تغيير اللغة",
+        "set_wallet": "💳 تعيين/تعديل المحفظة",
+        "back_to_menu": "🔙 العودة للقائمة الرئيسية",
+        "enter_new_wallet": "الرجاء إرسال عنوان المحفظة الجديد:",
+        "admin_panel": "🛠 **لوحة المشرف**",
+        "not_admin": "ليس لديك صلاحيات المشرف.",
+        "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك."
+    },
+    "es": {
+        "choose_lang": "Por favor, seleccione su idioma:",
+        "lang_changed": "Idioma cambiado exitosamente a español.",
+        "join_channel": "📢 Unirse al canal",
+        "check_membership": "✅ Me he unido, verificar",
+        "not_member": "❌ ¡Aún no te has unido al canal!",
+        "welcome": "¡Hola {name}! 👋\n\nPara usar el bot, primero debes unirte a nuestro canal:\n{channel}\n\nHaz clic en el botón de abajo después de unirte.",
+        "ask_wallet": "💳 Por favor envíe la dirección de su billetera (preferiblemente Tonkeeper):\n\n*(O haga clic abajo para omitir y configurarlo luego en ajustes)*",
+        "skip_wallet": "⏭ Omitir (Ir al Panel)",
+        "wallet_saved": "✅ ¡Dirección de billetera guardada con éxito!",
+        "wallet_skipped": "⚠️ Configuración omitida. Puedes establecerla cuando quieras en ajustes.",
+        "panel_title": "📊 **Tu Panel de Usuario**",
+        "username": "👤 Nombre de usuario",
+        "balance": "💰 Saldo de Tokens",
+        "referrals": "👥 Referidos",
+        "wallet": "💳 Billetera",
+        "not_set": "No configurado",
+        "ref_link_text": "🔗 **Tu enlace de invitación exclusivo:**",
+        "ref_desc": "¡Comparte este enlace con amigos y gana tokens cuando se unan!",
+        "refresh": "🔄 Actualizar",
+        "settings": "⚙️ Ajustes",
+        "settings_title": "⚙️ **Menú de Ajustes**\n\nSelecciona una opción:",
+        "change_lang": "🌐 Cambiar Idioma",
+        "set_wallet": "💳 Configurar/Editar Billetera",
+        "back_to_menu": "🔙 Volver al Menú Principal",
+        "enter_new_wallet": "Por favor, envíe la nueva dirección de su billetera:",
+        "admin_panel": "🛠 **Panel de Administración**",
+        "not_admin": "No tienes acceso de administrador.",
+        "ref_reward_msg": "🎉 ¡El usuario {name} se unió con tu enlace!\n🎁 Se añadieron {reward} tokens a tu saldo."
+    },
+    "hi": {
+        "choose_lang": "कृपया अपनी भाषा चुनें:",
+        "lang_changed": "भाषा सफलतापूर्वक हिंदी में बदल दी गई है।",
+        "join_channel": "📢 चैनल से जुड़ें",
+        "check_membership": "✅ मैंने जुड़ लिया है, जांचें",
+        "not_member": "❌ आप अभी तक चैनल में शामिल नहीं हुए हैं!",
+        "welcome": "नमस्ते {name}! 👋\n\nबॉट का उपयोग करने के लिए, पहले हमारे चैनल से जुड़ें:\n{channel}\n\nजुड़ने के बाद नीचे दिए गए बटन पर क्लिक करें।",
+        "ask_wallet": "💳 कृपया अपना वॉलेट पता भेजें (प्राथमिकता Tonkeeper):\n\n*(या इसे छोड़ने और बाद में सेटिंग में जोड़ने के लिए नीचे दिए गए बटन पर क्लिक करें)*",
+        "skip_wallet": "⏭ छोड़ें (पैनल में जाएं)",
+        "wallet_saved": "✅ वॉलेट का पता सफलतापूर्वक सहेज लिया गया!",
+        "wallet_skipped": "⚠️ वॉलेट सेटअप छोड़ दिया गया। आप इसे सेटिंग से कभी भी सेट कर सकते हैं।",
+        "panel_title": "📊 **आपका यूजर पैनल**",
+        "username": "👤 यूजरनेम",
+        "balance": "💰 टोकन बैलेंस",
+        "referrals": "👥 रेफरल",
+        "wallet": "💳 वॉलेट",
+        "not_set": "सेट नहीं है",
+        "ref_link_text": "🔗 **आपका विशेष आमंत्रण लिंक:**",
+        "ref_desc": "इस लिंक को दोस्तों के साथ साझा करें और उनके जुड़ने पर टोकन कमाएं!",
+        "refresh": "🔄 रिफ्रेश करें",
+        "settings": "⚙️ सेटिंग",
+        "settings_title": "⚙️ **सेटिंग्स मेनू**\n\nएक विकल्प चुनें:",
+        "change_lang": "🌐 भाषा बदलें",
+        "set_wallet": "💳 वॉलेट सेट/संपादित करें",
+        "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
+        "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
+        "admin_panel": "🛠 **एडमिन पैनल**",
+        "not_admin": "आपके پاس ایڈमिन تک رسائی نہیں ہے۔",
+        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए گئے हैं।"
+    }
+}
+
+def get_text(user_id, key, **kwargs):
+    lang = users_db.get(user_id, {}).get("lang", "fa")
+    text_template = TRANSLATIONS.get(lang, TRANSLATIONS["fa"]).get(key, TRANSLATIONS["fa"][key])
+    return text_template.format(**kwargs)
+
 def is_user_member(user_id):
-    """بررسی اینکه آیا کاربر در کانال عضو است یا خیر"""
     try:
         chat_member = bot.get_chat_member(CHANNEL_USERNAME, user_id)
         return chat_member.status in ['member', 'administrator', 'creator']
     except Exception:
         return False
 
+# --- شروع و انتخاب زبان ---
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     user_id = message.from_user.id
-    first_name = message.from_user.first_name
-
-    # ثبت نام کاربر در صورت عدم وجود
+    
     if user_id not in users_db:
         users_db[user_id] = {
             "balance": 0.0,
             "referrals": 0,
-            "referred_by": None
+            "referred_by": None,
+            "lang": "fa",
+            "wallet": None,
+            "state": "selecting_lang"
         }
 
-    # پردازش لینک رفرال (دعوت از دوستان)
+    # پردازش رفرال
     args = message.text.split()
     if len(args) > 1:
         inviter_id_str = args[1]
@@ -67,73 +256,191 @@ def handle_start(message):
                     users_db[inviter_id]["referrals"] += 1
                     reward = settings["reward_per_referral"]
                     users_db[inviter_id]["balance"] += reward
-                    
                     try:
-                        bot.send_message(
-                            inviter_id,
-                            f"🎉 کاربر عزیز {first_name} با لینک اختصاصی شما وارد ربات شد!\n"
-                            f"🎁 مقدار {reward} توکن به بالانس شما اضافه شد."
+                        inviter_lang = users_db[inviter_id].get("lang", "fa")
+                        msg_text = TRANSLATIONS[inviter_lang]["ref_reward_msg"].format(
+                            name=message.from_user.first_name, reward=reward
                         )
+                        bot.send_message(inviter_id, msg_text)
                     except Exception:
                         pass
 
-    # بررسی عضویت اجباری در کانال
+    # نمایش دکمه‌های انتخاب زبان
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
+    )
+    bot.send_message(user_id, "لطفاً زبان خود را انتخاب کنید / Please select your language:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
+def process_language_selection(call):
+    user_id = call.from_user.id
+    lang_code = call.data.split("_")[1]
+    
+    if user_id not in users_db:
+        users_db[user_id] = {"balance": 0.0, "referrals": 0, "referred_by": None, "wallet": None}
+    
+    users_db[user_id]["lang"] = lang_code
+    bot.answer_callback_query(call.id, get_text(user_id, "lang_changed"))
+    
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+
+    check_channel_and_proceed(call.message.chat.id, user_id)
+
+def check_channel_and_proceed(chat_id, user_id):
     if not is_user_member(user_id):
         markup = types.InlineKeyboardMarkup()
         channel_slug = CHANNEL_USERNAME.replace('@', '')
-        btn_join = types.InlineKeyboardButton("📢 عضویت در کانال", url=f"https://t.me/{channel_slug}")
-        btn_check = types.InlineKeyboardButton("✅ عضو شدم، بررسی کن", callback_data="check_membership")
+        btn_join = types.InlineKeyboardButton(get_text(user_id, "join_channel"), url=f"https://t.me/{channel_slug}")
+        btn_check = types.InlineKeyboardButton(get_text(user_id, "check_membership"), callback_data="check_membership")
         markup.add(btn_join)
         markup.add(btn_check)
         
         bot.send_message(
-            user_id,
-            f"سلام {first_name}! 👋\n\n"
-            f"برای استفاده از ربات و دریافت لینک رفرال، ابتدا باید در کانال ما عضو شوید:\n"
-            f"{CHANNEL_USERNAME}\n\n"
-            f"پس از عضویت، روی دکمه زیر کلیک کنید.",
+            chat_id,
+            get_text(user_id, "welcome", name=bot.get_chat(user_id).first_name, channel=CHANNEL_USERNAME),
             reply_markup=markup
         )
         return
 
-    send_main_menu(message.chat.id, user_id)
-
-def send_main_menu(chat_id, user_id):
-    """ارسال منوی اصلی و اطلاعات حساب کاربر"""
-    user_data = users_db.get(user_id, {"balance": 0, "referrals": 0})
-    bot_info = bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-
-    text = (
-        f"📊 **پنل کاربری شما**\n\n"
-        f"💰 موجودی توکن شما: `{user_data['balance']}` توکن\n"
-        f"👥 تعداد زیرمجموعه‌های شما: `{user_data['referrals']}` نفر\n\n"
-        f"🔗 **لینک دعوت اختصاصی شما:**\n`{ref_link}`\n\n"
-        f"با ارسال این لینک به دوستان خود و عضویت آن‌ها در کانال، توکن پاداش بگیرید!"
-    )
-    
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔄 بروزرسانی حساب", callback_data="refresh_account"))
-    
-    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+    # اگر کاربر عضو بود و کیف پول نداشت، درخواست کیف پول می‌کنیم
+    if not users_db[user_id].get("wallet"):
+        ask_for_wallet(chat_id, user_id)
+    else:
+        send_main_menu(chat_id, user_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_membership")
 def verify_membership(call):
     user_id = call.from_user.id
     if is_user_member(user_id):
-        bot.answer_callback_query(call.id, "✅ عضویت شما تایید شد!")
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-        send_main_menu(call.message.chat.id, user_id)
+        bot.answer_callback_query(call.id, "✅ OK!")
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+        except Exception:
+            pass
+        
+        if not users_db[user_id].get("wallet"):
+            ask_for_wallet(call.message.chat.id, user_id)
+        else:
+            send_main_menu(call.message.chat.id, user_id)
     else:
-        bot.answer_callback_query(call.id, "❌ شما هنوز در کانال عضو نشده‌اید!", show_alert=True)
+        bot.answer_callback_query(call.id, get_text(user_id, "not_member"), show_alert=True)
+
+def ask_for_wallet(chat_id, user_id):
+    users_db[user_id]["state"] = "waiting_for_wallet"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(get_text(user_id, "skip_wallet"), callback_data="skip_wallet"))
+    bot.send_message(chat_id, get_text(user_id, "ask_wallet"), reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "skip_wallet")
+def skip_wallet_step(call):
+    user_id = call.from_user.id
+    users_db[user_id]["state"] = None
+    bot.answer_callback_query(call.id, get_text(user_id, "wallet_skipped"))
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+    send_main_menu(call.message.chat.id, user_id)
+
+@bot.message_handler(func=lambda message: users_db.get(message.from_user.id, {}).get("state") == "waiting_for_wallet")
+def save_wallet_address(message):
+    user_id = message.from_user.id
+    wallet_address = message.text.strip()
+    
+    users_db[user_id]["wallet"] = wallet_address
+    users_db[user_id]["state"] = None
+    
+    bot.send_message(message.chat.id, get_text(user_id, "wallet_saved"))
+    send_main_menu(message.chat.id, user_id)
+
+def send_main_menu(chat_id, user_id):
+    user_data = users_db.get(user_id, {"balance": 0, "referrals": 0, "wallet": None})
+    user_info = bot.get_chat(user_id)
+    username = f"@{user_info.username}" if user_info.username else get_text(user_id, "not_set")
+    wallet = user_data.get("wallet") or get_text(user_id, "not_set")
+    
+    bot_info = bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+
+    text = (
+        f"{get_text(user_id, 'panel_title')}\n\n"
+        f"{get_text(user_id, 'username')}: `{username}`\n"
+        f"{get_text(user_id, 'balance')}: `{user_data['balance']}` توکن\n"
+        f"{get_text(user_id, 'referrals')}: `{user_data['referrals']}`\n"
+        f"{get_text(user_id, 'wallet')}: `{wallet}`\n\n"
+        f"{get_text(user_id, 'ref_link_text')}\n`{ref_link}`\n\n"
+        f"{get_text(user_id, 'ref_desc')}"
+    )
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton(get_text(user_id, "refresh"), callback_data="refresh_account"),
+        types.InlineKeyboardButton(get_text(user_id, "settings"), callback_data="open_settings")
+    )
+    
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data == "refresh_account")
 def refresh_account(call):
     user_id = call.from_user.id
     if not is_user_member(user_id):
-        bot.answer_callback_query(call.id, "❌ ابتدا باید در کانال عضو بمانید!", show_alert=True)
+        bot.answer_callback_query(call.id, get_text(user_id, "not_member"), show_alert=True)
         return
-    bot.answer_callback_query(call.id, "به‌روزرسانی شد.")
+    bot.answer_callback_query(call.id, "Updated.")
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+    send_main_menu(call.message.chat.id, user_id)
+
+# --- منوی تنظیمات ---
+@bot.callback_query_handler(func=lambda call: call.data == "open_settings")
+def open_settings_menu(call):
+    user_id = call.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(get_text(user_id, "change_lang"), callback_data="setting_change_lang"),
+        types.InlineKeyboardButton(get_text(user_id, "set_wallet"), callback_data="setting_set_wallet"),
+        types.InlineKeyboardButton(get_text(user_id, "back_to_menu"), callback_data="back_to_main")
+    )
+    try:
+        bot.edit_message_text(get_text(user_id, "settings_title"), call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    except Exception:
+        bot.send_message(call.message.chat.id, get_text(user_id, "settings_title"), reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "setting_change_lang")
+def settings_change_lang(call):
+    user_id = call.from_user.id
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
+        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
+        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
+        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
+        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
+    )
+    bot.edit_message_text(get_text(user_id, "choose_lang"), call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "setting_set_wallet")
+def settings_set_wallet(call):
+    user_id = call.from_user.id
+    users_db[user_id]["state"] = "waiting_for_wallet"
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, get_text(user_id, "enter_new_wallet"))
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_main")
+def back_to_main_menu(call):
+    user_id = call.from_user.id
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
@@ -145,34 +452,18 @@ def refresh_account(call):
 def admin_panel(message):
     user_id = message.from_user.id
     if user_id != ADMIN_ID:
-        bot.send_message(user_id, "شما دسترسی ادمین ندارید.")
+        bot.send_message(user_id, "You are not admin.")
         return
     
     admin_text = (
         f"🛠 **پنل مدیریت ربات**\n\n"
         f"پاداش فعلی هر رفرال: `{settings['reward_per_referral']}` توکن\n"
-        f"تعداد کل کاربران ثبت‌شده: `{len(users_db)}` نفر\n\n"
-        f"برای تغییر پاداش از دستور زیر استفاده کنید:\n"
-        f"`/setreward [عدد جدید]`"
+        f"تعداد کل کاربران ثبت‌شده: `{len(users_db)}` نفر\n"
     )
     bot.send_message(user_id, admin_text, parse_mode="Markdown")
-
-@bot.message_handler(commands=['setreward'])
-def set_reward(message):
-    user_id = message.from_user.id
-    if user_id != ADMIN_ID:
-        return
-    
-    args = message.text.split()
-    if len(args) > 1 and args[1].isdigit():
-        new_reward = float(args[1])
-        settings["reward_per_referral"] = new_reward
-        bot.send_message(user_id, f"✅ پاداش هر رفرال با موفقیت به {new_reward} تغییر یافت.")
-    else:
-        bot.send_message(user_id, "⚠️ لطفا مقدار جدید را به صورت عددی وارد کنید.\nمثال: `/setreward 15`", parse_mode="Markdown")
 
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running with dummy port server...")
+    print("Bot is running with 6-languages and full features...")
     bot.infinity_polling()
