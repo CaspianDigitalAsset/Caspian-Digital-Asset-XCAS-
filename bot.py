@@ -1,10 +1,12 @@
 import os
+import io
+import csv
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import telebot
 from telebot import types
 
-# --- وب‌سرور داخلی برای راضی کردن پورت رندر ---
+# --- وب‌سرور داخلی برای پلتفرم Render ---
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -20,17 +22,22 @@ threading.Thread(target=run_server, daemon=True).start()
 
 # --- تنظیمات اصلی ربات ---
 TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
-CHANNEL_USERNAME = "@xcaschannel"  # یوزرنیم کانال شما
-ADMIN_ID = 92220977  # آیدی عددی ادمین
+CHANNEL_USERNAME = "@xcaschannel"  
+ADMIN_ID = 92220977  
 
 bot = telebot.TeleBot(TOKEN)
 
-# --- پایگاه داده موقت کاربران ---
+# --- پایگاه داده و تنظیمات داینامیک ---
 users_db = {}
 
 settings = {
-    "reward_per_referral": 10
+    "signup_reward": 0,          # پاداش عضویت اولیه
+    "reward_per_referral": 10,   # پاداش پایه هر رفرال
+    "ref_milestone_count": 0,    # تعداد رفرال هدف (مثلا 5)
+    "ref_milestone_bonus": 0     # پاداش تعیین شده برای رفرال هدف (مثلا 1 توکن)
 }
+
+admin_states = {} # نگهداری وضعیت موقت ادمین برای دریافت مقادیر جدید
 
 # --- ترجمه کلمات به 6 زبان ---
 TRANSLATIONS = {
@@ -61,8 +68,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 ثبت/ویرایش کیف پول",
         "back_to_menu": "🔙 بازگشت به منوی اصلی",
         "enter_new_wallet": "لطفاً آدرس جدید کیف پول خود را ارسال کنید:",
-        "admin_panel": "🛠 **پنل مدیریت ربات**",
-        "not_admin": "شما دسترسی ادمین ندارید.",
         "ref_reward_msg": "🎉 کاربر عزیز {name} با لینک اختصاصی شما وارد ربات شد!\n🎁 مقدار {reward} توکن به بالانس شما اضافه شد."
     },
     "en": {
@@ -92,8 +97,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 Set/Edit Wallet",
         "back_to_menu": "🔙 Back to Main Menu",
         "enter_new_wallet": "Please send your new wallet address:",
-        "admin_panel": "🛠 **Admin Panel**",
-        "not_admin": "You don't have admin access.",
         "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance."
     },
     "ru": {
@@ -123,8 +126,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 Указать/Изменить кошелек",
         "back_to_menu": "🔙 Назад в меню",
         "enter_new_wallet": "Пожалуйста, отправьте новый адрес кошелька:",
-        "admin_panel": "🛠 **Панель администратора**",
-        "not_admin": "У вас нет прав администратора.",
         "ref_reward_msg": "🎉 Пользователь {name} присоединился по вашей ссылке!\n🎁 Вам начислено {reward} токенов."
     },
     "ar": {
@@ -154,8 +155,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 تعيين/تعديل المحفظة",
         "back_to_menu": "🔙 العودة للقائمة الرئيسية",
         "enter_new_wallet": "الرجاء إرسال عنوان المحفظة الجديد:",
-        "admin_panel": "🛠 **لوحة المشرف**",
-        "not_admin": "ليس لديك صلاحيات المشرف.",
         "ref_reward_msg": "🎉 انضم المستخدم {name} عبر رابط الدعوة الخاص بك!\n🎁 تمت إضافة {reward} رموز إلى رصيدك."
     },
     "es": {
@@ -185,8 +184,6 @@ TRANSLATIONS = {
         "set_wallet": "💳 Configurar/Editar Billetera",
         "back_to_menu": "🔙 Volver al Menú Principal",
         "enter_new_wallet": "Por favor, envíe la nueva dirección de su billetera:",
-        "admin_panel": "🛠 **Panel de Administración**",
-        "not_admin": "No tienes acceso de administrador.",
         "ref_reward_msg": "🎉 ¡El usuario {name} se unió con tu enlace!\n🎁 Se añadieron {reward} tokens a tu saldo."
     },
     "hi": {
@@ -216,9 +213,7 @@ TRANSLATIONS = {
         "set_wallet": "💳 वॉलेट सेट/संपादित करें",
         "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
         "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
-        "admin_panel": "🛠 **एडमिन पैनल**",
-        "not_admin": "आपके पास एडमिन तक पहुंच नहीं है।",
-        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकन जोड़ दिए गए हैं।"
+        "ref_reward_msg": "🎉 उपयोगकर्ता {name} आपके लिंक से जुड़ गया है!\n🎁 आपके बैलेंस में {reward} टोकن जोड़ दिए गए हैं."
     }
 }
 
@@ -239,8 +234,12 @@ def handle_start(message):
     user_id = message.from_user.id
     
     if user_id not in users_db:
+        initial_balance = float(settings["signup_reward"])
         users_db[user_id] = {
-            "balance": 0.0,
+            "user_id": user_id,
+            "first_name": message.from_user.first_name,
+            "username": message.from_user.username,
+            "balance": initial_balance,
             "referrals": 0,
             "referred_by": None,
             "lang": "fa",
@@ -248,27 +247,34 @@ def handle_start(message):
             "state": "selecting_lang"
         }
 
-    args = message.text.split()
-    if len(args) > 1:
-        inviter_id_str = args[1]
-        if inviter_id_str.isdigit():
-            inviter_id = int(inviter_id_str)
-            if inviter_id != user_id and users_db[user_id]["referred_by"] is None:
-                if inviter_id in users_db:
-                    users_db[user_id]["referred_by"] = inviter_id
-                    users_db[inviter_id]["referrals"] += 1
-                    reward = settings["reward_per_referral"]
-                    users_db[inviter_id]["balance"] += reward
-                    try:
-                        inviter_lang = users_db[inviter_id].get("lang", "fa")
-                        msg_text = TRANSLATIONS[inviter_lang]["ref_reward_msg"].format(
-                            name=message.from_user.first_name, reward=reward
-                        )
-                        bot.send_message(inviter_id, msg_text)
-                    except Exception:
-                        pass
+        args = message.text.split()
+        if len(args) > 1:
+            inviter_id_str = args[1]
+            if inviter_id_str.isdigit():
+                inviter_id = int(inviter_id_str)
+                if inviter_id != user_id and users_db[user_id]["referred_by"] is None:
+                    if inviter_id in users_db:
+                        users_db[user_id]["referred_by"] = inviter_id
+                        users_db[inviter_id]["referrals"] += 1
+                        
+                        # محاسبه پاداش رفرال با توجه به ساختار تعیین شده
+                        reward = settings["reward_per_referral"]
+                        milestone_count = settings["ref_milestone_count"]
+                        milestone_bonus = settings["ref_milestone_bonus"]
+                        
+                        if milestone_count > 0 and users_db[inviter_id]["referrals"] % milestone_count == 0:
+                            reward += milestone_bonus
 
-    # بازگشت پرچم‌ها به دکمه‌های زبان و متن انگلیسی در بالای آن
+                        users_db[inviter_id]["balance"] += reward
+                        try:
+                            inviter_lang = users_db[inviter_id].get("lang", "fa")
+                            msg_text = TRANSLATIONS[inviter_lang]["ref_reward_msg"].format(
+                                name=message.from_user.first_name, reward=reward
+                            )
+                            bot.send_message(inviter_id, msg_text)
+                        except Exception:
+                            pass
+
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
@@ -286,7 +292,7 @@ def process_language_selection(call):
     lang_code = call.data.split("_")[1]
     
     if user_id not in users_db:
-        users_db[user_id] = {"balance": 0.0, "referrals": 0, "referred_by": None, "wallet": None}
+        users_db[user_id] = {"user_id": user_id, "first_name": call.from_user.first_name, "username": call.from_user.username, "balance": 0.0, "referrals": 0, "referred_by": None, "wallet": None}
     
     users_db[user_id]["lang"] = lang_code
     bot.answer_callback_query(call.id, get_text(user_id, "lang_changed"))
@@ -366,8 +372,7 @@ def save_wallet_address(message):
 
 def send_main_menu(chat_id, user_id):
     user_data = users_db.get(user_id, {"balance": 0, "referrals": 0, "wallet": None})
-    user_info = bot.get_chat(user_id)
-    username = f"@{user_info.username}" if user_info.username else get_text(user_id, "not_set")
+    username = f"@{user_data.get('username')}" if user_data.get('username') else get_text(user_id, "not_set")
     wallet = user_data.get("wallet") or get_text(user_id, "not_set")
     
     bot_info = bot.get_me()
@@ -452,6 +457,8 @@ def back_to_main_menu(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
+# --- بخش مدیریت پیشرفته (Admin Panel) ---
+
 @bot.message_handler(commands=['admin'])
 def admin_panel(message):
     user_id = message.from_user.id
@@ -460,14 +467,167 @@ def admin_panel(message):
         return
     
     admin_text = (
-        f"🛠 **پنل مدیریت ربات**\n\n"
-        f"پاداش فعلی هر رفرال: `{settings['reward_per_referral']}` توکن\n"
-        f"تعداد کل کاربران ثبت‌شده: `{len(users_db)}` نفر\n"
+        f"🛠 **پنل مدیریت پیشرفته ربات**\n\n"
+        f"• پاداش عضویت اولیه: `{settings['signup_reward']}` توکن\n"
+        f"• پاداش پایه هر رفرال: `{settings['reward_per_referral']}` توکن\n"
+        f"• ساختار تشویقی: هر `{settings['ref_milestone_count']}` رفرال، مقدار `{settings['ref_milestone_bonus']}` توکن اضافه\n"
+        f"• تعداد کل کاربران: `{len(users_db)}` نفر\n\n"
+        f"از دکمه‌های زیر برای تغییر تنظیمات یا دریافت خروجی استفاده کنید:"
     )
-    bot.send_message(user_id, admin_text, parse_mode="Markdown")
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🎁 تغییر پاداش عضویت", callback_data="adm_set_signup"),
+        types.InlineKeyboardButton("👥 تغییر پاداش رفرال", callback_data="adm_set_ref"),
+        types.InlineKeyboardButton("⚙️ تنظیم ساختار رفرال", callback_data="adm_set_milestone"),
+        types.InlineKeyboardButton("📊 خروجی اکسل (CSV)", callback_data="adm_export_csv"),
+        types.InlineKeyboardButton("🌐 خروجی HTML", callback_data="adm_export_html")
+    )
+    bot.send_message(user_id, admin_text, reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("adm_"))
+def admin_callbacks(call):
+    user_id = call.from_user.id
+    if user_id != ADMIN_ID:
+        return
+    
+    action = call.data
+    
+    if action == "adm_set_signup":
+        admin_states[user_id] = "waiting_signup_reward"
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "لطفاً مقدار جدید پاداش عضویت اولیه را (به صورت عدد) ارسال کنید:")
+    
+    elif action == "adm_set_ref":
+        admin_states[user_id] = "waiting_ref_reward"
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "لطفاً مقدار جدید پاداش پایه هر رفرال را (به صورت عدد) ارسال کنید:")
+        
+    elif action == "adm_set_milestone":
+        admin_states[user_id] = "waiting_milestone_config"
+        bot.answer_callback_query(call.id)
+        bot.send_message(user_id, "ساختار رفرال را به این شکل بفرستید (دو عدد با فاصله یا کاما):\nمثال: `5, 1` (یعنی هر ۵ رفرال، ۱ توکن اضافه پاداش)")
+        
+    elif action == "adm_export_csv":
+        bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل اکسل...")
+        send_csv_export(user_id)
+        
+    elif action == "adm_export_html":
+        bot.answer_callback_query(call.id, "در حال آماده‌سازی فایل HTML...")
+        send_html_export(user_id)
+
+@bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and admin_states.get(message.from_user.id))
+def handle_admin_inputs(message):
+    user_id = message.from_user.id
+    state = admin_states.get(user_id)
+    text = message.text.strip()
+    
+    if state == "waiting_signup_reward":
+        try:
+            val = float(text)
+            settings["signup_reward"] = val
+            admin_states[user_id] = None
+            bot.send_message(user_id, f"✅ پاداش عضویت با موفقیت به `{val}` تغییر یافت.")
+        except ValueError:
+            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید.")
+            
+    elif state == "waiting_ref_reward":
+        try:
+            val = float(text)
+            settings["reward_per_referral"] = val
+            admin_states[user_id] = None
+            bot.send_message(user_id, f"✅ پاداش پایه رفرال با موفقیت به `{val}` تغییر یافت.")
+        except ValueError:
+            bot.send_message(user_id, "❌ لطفاً فقط یک عدد معتبر ارسال کنید.")
+            
+    elif state == "waiting_milestone_config":
+        try:
+            parts = text.replace(",", " ").split()
+            count = int(parts[0])
+            bonus = float(parts[1])
+            settings["ref_milestone_count"] = count
+            settings["ref_milestone_bonus"] = bonus
+            admin_states[user_id] = None
+            bot.send_message(user_id, f"✅ ساختار رفرال تنظیم شد:\nهر `{count}` رفرال = `{bonus}` توکن پاداش اضافه.")
+        except Exception:
+            bot.send_message(user_id, "❌ فرمت اشتباه است. دو عدد مانند `5, 1` ارسال کنید.")
+
+def send_csv_export(admin_id):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    # هدرهای جدول
+    writer.writerow(["User ID", "First Name", "Username", "Balance", "Referrals", "Language", "Wallet"])
+    
+    for uid, udata in users_db.items():
+        writer.writerow([
+            udata.get("user_id"),
+            udata.get("first_name"),
+            udata.get("username", ""),
+            udata.get("balance"),
+            udata.get("referrals"),
+            udata.get("lang"),
+            udata.get("wallet", "Not Set")
+        ])
+    
+    output.seek(0)
+    file_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+    file_bytes.name = "users_report.csv"
+    bot.send_document(admin_id, file_bytes, caption="📁 فایل اکسل (CSV) لیست کاربران ربات")
+
+def send_html_export(admin_id):
+    html_content = """
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Users Report</title>
+        <style>
+            body { font-family: Tahoma, sans-serif; direction: rtl; background: #f4f4f9; padding: 20px; }
+            h2 { color: #333; }
+            table { width: 100%; border-collapse: collapse; background: #fff; margin-top: 15px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+            th { background-color: #4CAF50; color: white; }
+            tr:nth-child(even) { background-color: #f2f2f2; }
+        </style>
+    </head>
+    <body>
+        <h2>گزارش کامل کاربران ربات</h2>
+        <table>
+            <tr>
+                <th>شناسه کاربری (ID)</th>
+                <th>نام</th>
+                <th>نام کاربری</th>
+                <th>موجودی توکن</th>
+                <th>تعداد رفرال</th>
+                <th>زبان</th>
+                <th>کیف پول</th>
+            </tr>
+    """
+    
+    for uid, udata in users_db.items():
+        html_content += f"""
+            <tr>
+                <td>{udata.get("user_id")}</td>
+                <td>{udata.get("first_name")}</td>
+                <td>@{udata.get("username", "ندارد")}</td>
+                <td>{udata.get("balance")}</td>
+                <td>{udata.get("referrals")}</td>
+                <td>{udata.get("lang")}</td>
+                <td>{udata.get("wallet", "ثبت نشده")}</td>
+            </tr>
+        """
+        
+    html_content += """
+        </table>
+    </body>
+    </html>
+    """
+    
+    file_bytes = io.BytesIO(html_content.encode('utf-8'))
+    file_bytes.name = "users_report.html"
+    bot.send_document(admin_id, file_bytes, caption="🌐 فایل گزارش HTML کاربران")
 
 if __name__ == "__main__":
     print("Removing old webhooks...")
     bot.remove_webhook()
-    print("Bot is running with flags and English prompt...")
+    print("Bot is running with Advanced Admin & Export features...")
     bot.infinity_polling()
