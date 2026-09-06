@@ -4,7 +4,7 @@ from telebot import types
 # --- تنظیمات اصلی ربات ---
 TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
 CHANNEL_USERNAME = "@xcaschannel"  # یوزرنیم کانال شما
-ADMIN_ID = 92220977  # جایگزین کنید با تلگرام آیدی عددی خودتان (Admin Telegram ID)
+ADMIN_ID = 92220977  # آیدی عددی ادمین
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -159,5 +159,7 @@ def set_reward(message):
         bot.send_message(user_id, "⚠️ لطفا مقدار جدید را به صورت عددی وارد کنید.\nمثال: `/setreward 15`", parse_mode="Markdown")
 
 if __name__ == "__main__":
+    print("Removing old webhooks...")
+    bot.remove_webhook()
     print("Bot is running...")
     bot.infinity_polling()
