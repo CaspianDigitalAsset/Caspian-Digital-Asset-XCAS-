@@ -1,4 +1,4 @@
-name = "xcasbot"
+name = "caspian-digital-asset-xcas"
 main = "bot.py"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["python_workers"]
