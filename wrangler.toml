@@ -1,9 +1,12 @@
 name = "caspian-digital-asset-xcas"
-main = "bot.py"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["python_workers"]
+main = "index.js"
+compatibility_date = "2026-09-07"
+
+[vars]
+# توکن ربات تلگرام خود را اینجا قرار دهید یا به عنوان Secret در کلودفلر تنظیم کنید
+# TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "xcasbot"
-database_id = "9a28f601-3274-44b5-9013-6d797c2f9d97"
+database_id = "شناسه_دیتابیس_D1_شما"
