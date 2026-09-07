@@ -26,7 +26,7 @@ admin_states = {}
 
 TRANSLATIONS = {
     "fa": {
-        "choose_lang": "Please select your language:",
+        "choose_lang": "لطفاً زبان خود را انتخاب کنید:",
         "lang_changed": "زبان با موفقیت به فارسی تغییر یافت.",
         "join_channel": "📢 عضویت در کانال",
         "check_membership": "✅ عضو شدم، بررسی کن",
@@ -71,6 +71,8 @@ def get_text(user_db_data, key, **kwargs):
 
 # --- توابع کار با دیتابیس کلودفلر (Cloudflare D1) ---
 def get_user_from_db(env, user_id):
+    if not env or not hasattr(env, "DB"):
+        return None
     query = "SELECT * FROM users WHERE user_id = ?"
     result = env.DB.prepare(query).bind(user_id).first()
     if result:
@@ -88,6 +90,8 @@ def get_user_from_db(env, user_id):
     return None
 
 def save_user_to_db(env, user_data):
+    if not env or not hasattr(env, "DB"):
+        return
     query = """
         INSERT INTO users (user_id, first_name, username, balance, referrals, referred_by, lang, wallet, state)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -114,6 +118,8 @@ def save_user_to_db(env, user_data):
     ).run()
 
 def get_total_users_count(env):
+    if not env or not hasattr(env, "DB"):
+        return 0
     res = env.DB.prepare("SELECT COUNT(*) as count FROM users").first()
     return res.count if res else 0
 
@@ -124,7 +130,6 @@ def is_user_member(user_id):
     except Exception:
         return False
 
-# متغیر سراسری موقت جهت دسترسی به محیط D1 در هندلرها
 current_env = None
 
 # --- هندلرها و منطق ربات ---
@@ -175,7 +180,30 @@ def handle_start(message):
         types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
         types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en")
     )
-    bot.send_message(user_id, "Please select your language:", reply_markup=markup)
+    bot.send_message(user_id, "لطفاً زبان خود را انتخاب کنید / Please select your language:", reply_markup=markup)
+
+@bot.message_handler(commands=['admin'])
+def handle_admin_command(message):
+    env = current_env
+    user_id = message.from_user.id
+    if user_id != ADMIN_ID:
+        return
+    user_data = get_user_from_db(env, user_id)
+    users_count = get_total_users_count(env)
+    
+    text = get_text(user_data, "admin_panel", 
+                    signup=settings["signup_reward"], 
+                    ref=settings["reward_per_referral"], 
+                    users_count=users_count)
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(get_text(user_data, "adm_btn_signup"), callback_data="adm_set_signup"),
+        types.InlineKeyboardButton(get_text(user_data, "adm_btn_ref"), callback_data="adm_set_ref"),
+        types.InlineKeyboardButton(get_text(user_data, "adm_btn_csv"), callback_data="adm_get_csv"),
+        types.InlineKeyboardButton(get_text(user_data, "adm_btn_reset"), callback_data="adm_reset_bot")
+    )
+    bot.send_message(user_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
 def process_language_selection(call):
@@ -315,10 +343,81 @@ def refresh_account(call):
         pass
     send_main_menu(call.message.chat.id, user_id)
 
+@bot.callback_query_handler(func=lambda call: call.data == "open_settings")
+def open_settings_menu(call):
+    env = current_env
+    user_id = call.from_user.id
+    user_data = get_user_from_db(env, user_id)
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(get_text(user_data, "change_lang"), callback_data="st_change_lang"),
+        types.InlineKeyboardButton(get_text(user_data, "set_wallet"), callback_data="st_set_wallet"),
+        types.InlineKeyboardButton(get_text(user_data, "back_to_menu"), callback_data="st_back_to_menu")
+    )
+    bot.edit_message_text(get_text(user_data, "settings_title"), call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+
+@bot.callback_query_handler(func=lambda call: call.data == "st_back_to_menu")
+def back_to_menu_cb(call):
+    try:
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+    except Exception:
+        pass
+    send_main_menu(call.message.chat.id, call.from_user.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == "st_set_wallet")
+def st_set_wallet_cb(call):
+    env = current_env
+    user_id = call.from_user.id
+    user_data = get_user_from_db(env, user_id)
+    user_data["state"] = "waiting_for_wallet"
+    save_user_to_db(env, user_data)
+    bot.answer_callback_query(call.id)
+    bot.send_message(call.message.chat.id, get_text(user_data, "enter_new_wallet"))
+
+@bot.callback_query_handler(func=lambda call: call.data == "st_change_lang")
+def st_change_lang_cb(call):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en")
+    )
+    bot.edit_message_text("لطفاً زبان خود را انتخاب کنید / Please select your language:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "adm_get_csv")
+def admin_get_csv(call):
+    env = current_env
+    if call.from_user.id != ADMIN_ID:
+        return
+    try:
+        res = env.DB.prepare("SELECT user_id, first_name, username, balance, referrals, wallet, lang FROM users").all()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["User ID", "First Name", "Username", "Balance", "Referrals", "Wallet", "Language"])
+        for row in res.results:
+            writer.writerow([row.user_id, row.first_name, row.username, row.balance, row.referrals, row.wallet, row.lang])
+        
+        csv_bytes = output.getvalue().encode('utf-8')
+        bot.send_document(call.message.chat.id, ('users_report.csv', io.BytesIO(csv_bytes)), caption="📊 فایل خروجی کاربران ربات")
+        bot.answer_callback_query(call.id, "CSV generated.")
+    except Exception as e:
+        bot.answer_callback_query(call.id, f"Error: {str(e)}", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data == "adm_reset_bot")
+def admin_reset_bot(call):
+    env = current_env
+    if call.from_user.id != ADMIN_ID:
+        return
+    try:
+        env.DB.prepare("DELETE FROM users").run()
+        bot.answer_callback_query(call.id, "Database cleared successfully!", show_alert=True)
+    except Exception as e:
+        bot.answer_callback_query(call.id, f"Error: {str(e)}", show_alert=True)
+
 # --- نقطه ورود کلودفلر (Cloudflare Worker Entry Point) ---
 async def on_fetch(request, env, ctx):
     global current_env
-    current_env = env  # مقداردهی متغیر سراسری برای دسترسی هندلرها به پایگاه داده D1
+    current_env = env  
     
     if request.method == "POST":
         try:
