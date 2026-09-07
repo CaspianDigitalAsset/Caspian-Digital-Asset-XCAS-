@@ -61,7 +61,6 @@ TRANSLATIONS = {
         "adm_btn_announcement": "📢 تنظیم پیام ثابت/همگانی",
         "not_admin": "You are not admin."
     }
-    # سایر زبان‌ها در صورت نیاز اضافه می‌شوند
 }
 
 def get_text(user_db_data, key, **kwargs):
@@ -125,9 +124,13 @@ def is_user_member(user_id):
     except Exception:
         return False
 
+# متغیر سراسری موقت جهت دسترسی به محیط D1 در هندلرها
+current_env = None
+
 # --- هندلرها و منطق ربات ---
 @bot.message_handler(commands=['start'])
-def handle_start(message, env):
+def handle_start(message):
+    env = current_env
     user_id = message.from_user.id
     user_data = get_user_from_db(env, user_id)
     
@@ -175,7 +178,8 @@ def handle_start(message, env):
     bot.send_message(user_id, "Please select your language:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
-def process_language_selection(call, env):
+def process_language_selection(call):
+    env = current_env
     user_id = call.from_user.id
     lang_code = call.data.split("_")[1]
     
@@ -193,9 +197,10 @@ def process_language_selection(call, env):
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    check_channel_and_proceed(call, env)
+    check_channel_and_proceed(call)
 
-def check_channel_and_proceed(call, env):
+def check_channel_and_proceed(call):
+    env = current_env
     user_id = call.from_user.id
     chat_id = call.message.chat.id
     user_data = get_user_from_db(env, user_id)
@@ -211,12 +216,13 @@ def check_channel_and_proceed(call, env):
         return
 
     if not user_data.get("wallet"):
-        ask_for_wallet(chat_id, user_id, env)
+        ask_for_wallet(chat_id, user_id)
     else:
-        send_main_menu(chat_id, user_id, env)
+        send_main_menu(chat_id, user_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_membership")
-def verify_membership(call, env):
+def verify_membership(call):
+    env = current_env
     user_id = call.from_user.id
     user_data = get_user_from_db(env, user_id)
     if is_user_member(user_id):
@@ -226,13 +232,14 @@ def verify_membership(call, env):
         except Exception:
             pass
         if not user_data.get("wallet"):
-            ask_for_wallet(call.message.chat.id, user_id, env)
+            ask_for_wallet(call.message.chat.id, user_id)
         else:
-            send_main_menu(call.message.chat.id, user_id, env)
+            send_main_menu(call.message.chat.id, user_id)
     else:
         bot.answer_callback_query(call.id, get_text(user_data, "not_member"), show_alert=True)
 
-def ask_for_wallet(chat_id, user_id, env):
+def ask_for_wallet(chat_id, user_id):
+    env = current_env
     user_data = get_user_from_db(env, user_id)
     user_data["state"] = "waiting_for_wallet"
     save_user_to_db(env, user_data)
@@ -242,7 +249,8 @@ def ask_for_wallet(chat_id, user_id, env):
     bot.send_message(chat_id, get_text(user_data, "ask_wallet"), reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "skip_wallet")
-def skip_wallet_step(call, env):
+def skip_wallet_step(call):
+    env = current_env
     user_id = call.from_user.id
     user_data = get_user_from_db(env, user_id)
     user_data["state"] = None
@@ -252,19 +260,21 @@ def skip_wallet_step(call, env):
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    send_main_menu(call.message.chat.id, user_id, env)
+    send_main_menu(call.message.chat.id, user_id)
 
-@bot.message_handler(func=lambda message, env: get_user_from_db(env, message.from_user.id) and get_user_from_db(env, message.from_user.id).get("state") == "waiting_for_wallet")
-def save_wallet_address(message, env):
+@bot.message_handler(func=lambda message: get_user_from_db(current_env, message.from_user.id) and get_user_from_db(current_env, message.from_user.id).get("state") == "waiting_for_wallet")
+def save_wallet_address(message):
+    env = current_env
     user_id = message.from_user.id
     user_data = get_user_from_db(env, user_id)
     user_data["wallet"] = message.text.strip()
     user_data["state"] = None
     save_user_to_db(env, user_data)
     bot.send_message(message.chat.id, get_text(user_data, "wallet_saved"))
-    send_main_menu(message.chat.id, user_id, env)
+    send_main_menu(message.chat.id, user_id)
 
-def send_main_menu(chat_id, user_id, env):
+def send_main_menu(chat_id, user_id):
+    env = current_env
     user_data = get_user_from_db(env, user_id)
     username = f"@{user_data.get('username')}" if user_data.get('username') else get_text(user_data, "not_set")
     wallet = user_data.get("wallet") or get_text(user_data, "not_set")
@@ -291,28 +301,29 @@ def send_main_menu(chat_id, user_id, env):
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data == "refresh_account")
-def refresh_account(call, env):
+def refresh_account(call):
+    env = current_env
     user_id = call.from_user.id
     user_data = get_user_from_db(env, user_id)
     if not is_user_member(user_id):
-        bot.answer_callback_query(call.id, get_text(user_data, "not_member"), show_alt=True)
+        bot.answer_callback_query(call.id, get_text(user_data, "not_member"), show_alert=True)
         return
     bot.answer_callback_query(call.id, "Updated.")
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    send_main_menu(call.message.chat.id, user_id, env)
+    send_main_menu(call.message.chat.id, user_id)
 
 # --- نقطه ورود کلودفلر (Cloudflare Worker Entry Point) ---
 async def on_fetch(request, env, ctx):
+    global current_env
+    current_env = env  # مقداردهی متغیر سراسری برای دسترسی هندلرها به پایگاه داده D1
+    
     if request.method == "POST":
         try:
             req_data = await request.json()
             update = telebot.types.Update.de_json(json.dumps(req_data))
-            
-        
-            # تزریق متغیر env به پردازشگر پیام‌ها
             bot.process_new_updates([update])
             return Response.new("OK", status=200)
         except Exception as e:
