@@ -1,25 +1,19 @@
 import os
 import io
 import csv
+import json
 import telebot
 from telebot import types
-from flask import Flask, request, abort
+from js import Response
 
 # --- تنظیمات اصلی ربات ---
-TOKEN = "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw"
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8779335307:AAH0OA5m-RedEo0o4_d1YUXpkZCH0UfWIGw")
 CHANNEL_USERNAME = "@xcaschannel"  
 ADMIN_ID = 92220977  
 
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
-app = Flask(__name__)
 
-# آدرس دامنه شما در Render
-RENDER_EXTERNAL_URL = "https://caspian-digital-asset-xcas.onrender.com"
-WEBHOOK_URL_PATH = f"/{TOKEN}"
-
-# --- پایگاه داده و تنظیمات داینامیک ---
-users_db = {}
-
+# تنظیمات داینامیک پیش‌فرض (در صورت عدم وجود در دیتابیس)
 settings = {
     "signup_reward": 0,          
     "reward_per_referral": 10,   
@@ -30,7 +24,6 @@ settings = {
 
 admin_states = {} 
 
-# --- تمام متن‌ها و ترجمه‌ها ---
 TRANSLATIONS = {
     "fa": {
         "choose_lang": "Please select your language:",
@@ -60,208 +53,70 @@ TRANSLATIONS = {
         "back_to_menu": "🔙 بازگشت به منوی اصلی",
         "enter_new_wallet": "لطفاً آدرس جدید کیف پول خود را ارسال کنید:",
         "ref_reward_msg": "🎉 کاربر عزیز {name} با لینک اختصاصی شما وارد ربات شد!\n🎁 مقدار {reward} توکن به بالانس شما اضافه شد.",
-        "admin_panel": "🛠 **پنل مدیریت پیشرفته ربات**\n\n• پاداش عضویت اولیه: `{signup}` توکن\n• پاداش پایه هر رفرال: `{ref}` توکن\n• ساختار تشویقی: هر `{m_count}` رفرال، مقدار `{m_bonus}` توکن اضافه\n• تعداد کل کاربران ثبت‌شده: `{users_count}` نفر\n\nاز دکمه‌های زیر استفاده کنید:",
+        "admin_panel": "🛠 **پنل مدیریت پیشرفته ربات**\n\n• پاداش عضویت اولیه: `{signup}` توکن\n• پاداش پایه هر رفرال: `{ref}` توکن\n• تعداد کل کاربران ثبت‌شده: `{users_count}` نفر\n\nاز دکمه‌های زیر استفاده کنید:",
         "adm_btn_signup": "🎁 تغییر پاداش عضویت",
         "adm_btn_ref": "👥 تغییر پاداش رفرال",
-        "adm_btn_milestone": "⚙️ تنظیم ساختار رفرال",
         "adm_btn_csv": "📊 خروجی اکسل (CSV)",
-        "adm_btn_html": "🌐 خروجی HTML",
         "adm_btn_reset": "⚠️ ریست کامل ربات (حذف کاربران)",
         "adm_btn_announcement": "📢 تنظیم پیام ثابت/همگانی",
         "not_admin": "You are not admin."
-    },
-    "en": {
-        "choose_lang": "Please select your language:",
-        "lang_changed": "Language successfully changed to English.",
-        "join_channel": "📢 Join Channel",
-        "check_membership": "✅ I've joined, check it",
-        "not_member": "❌ You are not a member of the channel yet!",
-        "welcome": "Hello {name}! 👋\n\nTo use the bot, you must first join our channel:\n{channel}\n\nClick the button below after joining.",
-        "ask_wallet": "💳 Please send your wallet address (preferably Tonkeeper):\n\n*(Or click the button below to skip and set it later in settings)*",
-        "skip_wallet": "⏭ Skip (Enter Panel)",
-        "wallet_saved": "✅ Wallet address saved successfully!",
-        "wallet_skipped": "⚠️ Wallet setup skipped. You can set it anytime from settings.",
-        "panel_title": "📊 **Your User Panel**",
-        "username": "👤 Username",
-        "balance": "💰 Token Balance",
-        "token_word": "tokens",
-        "referrals": "👥 Referrals",
-        "wallet": "💳 Wallet",
-        "not_set": "Not Set",
-        "ref_link_text": "🔗 **Your Exclusive Invite Link:**",
-        "ref_desc": "Share this link with friends and earn tokens when they join the channel!",
-        "refresh": "🔄 Refresh Account",
-        "settings": "⚙️ Settings",
-        "settings_title": "⚙️ **Settings Menu**\n\nChoose an option:",
-        "change_lang": "🌐 Change Language",
-        "set_wallet": "💳 Set/Edit Wallet",
-        "back_to_menu": "🔙 Back to Main Menu",
-        "enter_new_wallet": "Please send your new wallet address:",
-        "ref_reward_msg": "🎉 User {name} joined via your invite link!\n🎁 {reward} tokens added to your balance.",
-        "admin_panel": "🛠 **Advanced Admin Panel**\n\n• Signup Reward: `{signup}` tokens\n• Referral Reward: `{ref}` tokens\n• Milestone: Every `{m_count}` refs, `{m_bonus}` extra tokens\n• Total Registered Users: `{users_count}`\n\nUse buttons below:",
-        "adm_btn_signup": "🎁 Change Signup Reward",
-        "adm_btn_ref": "👥 Change Referral Reward",
-        "adm_btn_milestone": "⚙️ Set Referral Milestone",
-        "adm_btn_csv": "📊 Export CSV",
-        "adm_btn_html": "🌐 Export HTML",
-        "adm_btn_reset": "⚠️ Reset Bot (Clear Users)",
-        "adm_btn_announcement": "📢 Set Announcement",
-        "not_admin": "You are not admin."
-    },
-    "ru": {
-        "choose_lang": "Please select your language:",
-        "lang_changed": "Язык успешно изменен на русский.",
-        "join_channel": "📢 Подписаться на канал",
-        "check_membership": "✅ Я подписался, проверить",
-        "not_member": "❌ Вы еще не подписаны на канал!",
-        "welcome": "Привет, {name}! 👋\n\nЧтобы использовать бота, подпишитесь на наш канал:\n{channel}\n\nПосле подписки нажмите кнопку ниже.",
-        "ask_wallet": "💳 Пожалуйста, отправьте адрес вашего кошелька (предпочтительно Tonkeeper):\n\n*(Или нажмите кнопку ниже, чтобы пропустить и настроить позже)*",
-        "skip_wallet": "⏭ Пропустить (В меню)",
-        "wallet_saved": "✅ Адрес кошелька успешно сохранен!",
-        "wallet_skipped": "⚠️ Настройка кошелька пропущена. Вы можете указать его в настройках.",
-        "panel_title": "📊 **Ваша панель управления**",
-        "username": "👤 Имя пользователя",
-        "balance": "💰 Баланс токенов",
-        "token_word": "токенов",
-        "referrals": "👥 Рефералы",
-        "wallet": "💳 Кошелек",
-        "not_set": "Не указан",
-        "ref_link_text": "🔗 **Ваша реферальная ссылка:**",
-        "ref_desc": "Поделитесь ссылкой с друзьями и получайте токены за их подписку!",
-        "refresh": "🔄 Обновить",
-        "settings": "⚙️ Настройки",
-        "settings_title": "⚙️ **Меню настроек**\n\nВыберите опцию:",
-        "change_lang": "🌐 Изменить язык",
-        "set_wallet": "💳 Указать/Изменить кошелек",
-        "back_to_menu": "🔙 Назад в меню",
-        "enter_new_wallet": "Пожалуйста, отправьте новый адрес кошелька:",
-        "admin_panel": "🛠 **Панель администратора**\n\n• Награда за регистрацию: `{signup}`\n• Награда за реферала: `{ref}`\n• Всего пользователей: `{users_count}`\n\nИспользуйте кнопки:",
-        "adm_btn_signup": "🎁 Изменить награду за рег.",
-        "adm_btn_ref": "👥 Изменить награду реф.",
-        "adm_btn_milestone": "⚙️ Настроить бонус",
-        "adm_btn_csv": "📊 Экспорт CSV",
-        "adm_btn_html": "🌐 Экспорт HTML",
-        "adm_btn_reset": "⚠️ Сбросить бот",
-        "adm_btn_announcement": "📢 Объявление",
-        "not_admin": "You are not admin."
-    },
-    "ar": {
-        "choose_lang": "Please select your language:",
-        "lang_changed": "تم تغيير لغة التطبيق إلى العربية بنجاح.",
-        "join_channel": "📢 اشتراك في القناة",
-        "check_membership": "✅ لقد اشتركت، تحقق",
-        "not_member": "❌ أنت لم تشترك في القناة بعد!",
-        "welcome": "أهلاً بك {name}! 👋\n\nلاستخدام البوت، يجب عليك أولاً الاشتراك في قناتنا:\n{channel}\n\nاضغط على الزر أدناه بعد الاشتراك.",
-        "ask_wallet": "💳 الرجاء إرسال عنوان محفظتك (يفضل Tonkeeper):\n\n*(أو يمكنك تخطي هذه الخطوة وإضافتها لاحقاً من الإعدادات)*",
-        "skip_wallet": "⏭ تخطي (الدخول للقائمة)",
-        "wallet_saved": "✅ تم حفظ عنوان المحفظة بنجاح!",
-        "wallet_skipped": "⚠️ تم تخطي المحفظة. يمكنك إضافتها في أي وقت من الإعدادات.",
-        "panel_title": "📊 **لوحة التحكم الخاصة بك**",
-        "username": "👤 اسم المستخدم",
-        "balance": "💰 رصيد الرموز",
-        "token_word": "رمز",
-        "referrals": "👥 عدد الإحالات",
-        "wallet": "💳 المحفظة",
-        "not_set": "غير محدد",
-        "ref_link_text": "🔗 **رابط الدعوة الخاص بك:**",
-        "ref_desc": "شارك هذا الرابط مع أصدقائك واكسب رموزاً عند اشتراكهم في القناة!",
-        "refresh": "🔄 تحديث الحساب",
-        "settings": "⚙️ الإعدادات",
-        "settings_title": "⚙️ **قائمة الإعدادات**\n\nاختر ما يناسبك:",
-        "change_lang": "🌐 تغيير اللغة",
-        "set_wallet": "💳 تعيين/تعديل المحفظة",
-        "back_to_menu": "🔙 العودة للقائمة الرئيسية",
-        "enter_new_wallet": "الرجاء إرسال عنوان المحفظة الجديد:",
-        "admin_panel": "🛠 **لوحة تحكم المشرف**\n\n• مكافأة التسجيل: `{signup}`\n• مكافأة الإحالة: `{ref}`\n• إجمالي المستخدمين: `{users_count}`\n\nاستخدم الأزرار أدناه:",
-        "adm_btn_signup": "🎁 تغيير مكافأة التسجيل",
-        "adm_btn_ref": "👥 تغيير مكافأة الإحالة",
-        "adm_btn_milestone": "⚙️ إعدادات الإحالة",
-        "adm_btn_csv": "📊 تصدير CSV",
-        "adm_btn_html": "🌐 تصدير HTML",
-        "adm_btn_reset": "⚠️ إعادة ضبط البوت",
-        "adm_btn_announcement": "📢 تعيين رسالة عامة",
-        "not_admin": "You are not admin."
-    },
-    "es": {
-        "choose_lang": "Please select your language:",
-        "lang_changed": "Idioma cambiado exitosamente a español.",
-        "join_channel": "📢 Unirse al canal",
-        "check_membership": "✅ Me he unido, verificar",
-        "not_member": "❌ ¡Aún no te has unido al canal!",
-        "welcome": "¡Hola {name}! 👋\n\nPara usar el bot, primero debes unirte a nuestro canal:\n{channel}\n\nHaz clic en el botón de abajo después de unirte.",
-        "ask_wallet": "💳 Por favor envíe la dirección de su billetera (preferiblemente Tonkeeper):\n\n*(O haga clic abajo para omitir y configurarlo luego en ajustes)*",
-        "skip_wallet": "⏭ Omitir (Ir al Panel)",
-        "wallet_saved": "✅ ¡Dirección de billetera guardada con éxito!",
-        "wallet_skipped": "⚠️ Configuración omitida. Puedes establecerla cuando quieras en ajustes.",
-        "panel_title": "📊 **Tu Panel de Usuario**",
-        "username": "👤 Nombre de usuario",
-        "balance": "💰 Saldo de Tokens",
-        "token_word": "tokens",
-        "referrals": "👥 Referidos",
-        "wallet": "💳 Billetera",
-        "not_set": "No configurado",
-        "ref_link_text": "🔗 **Tu enlace de invitación exclusivo:**",
-        "ref_desc": "¡Comparte este enlace con amigos y gana tokens cuando se unan!",
-        "refresh": "🔄 Actualizar",
-        "settings": "⚙️ Ajustes",
-        "settings_title": "⚙️ **Menú de Ajustes**\n\nSelecciona una opción:",
-        "change_lang": "🌐 Cambiar Idioma",
-        "set_wallet": "💳 Configurar/Editar Billetera",
-        "back_to_menu": "🔙 Volver al Menú Principal",
-        "enter_new_wallet": "Por favor, envíe la nueva dirección de su billetera:",
-        "admin_panel": "🛠 **Panel de Administración**\n\n• Recompensa de registro: `{signup}`\n• Recompensa de referido: `{ref}`\n• Total de usuarios: `{users_count}`\n\nUsa los botones:",
-        "adm_btn_signup": "🎁 Cambiar rec. registro",
-        "adm_btn_ref": "👥 Cambiar rec. referido",
-        "adm_btn_milestone": "⚙️ Config. hito",
-        "adm_btn_csv": "📊 Exportar CSV",
-        "adm_btn_html": "🌐 Exportar HTML",
-        "adm_btn_reset": "⚠️ Reiniciar Bot",
-        "adm_btn_announcement": "📢 Anuncio",
-        "not_admin": "You are not admin."
-    },
-    "hi": {
-        "choose_lang": "Please select your language:",
-        "lang_changed": "भाषा सफलतापूर्वक हिंदी में बदल दी गई है।",
-        "join_channel": "📢 चैनल से जुड़ें",
-        "check_membership": "✅ मैंने जुड़ लिया है, जांचें",
-        "not_member": "❌ आप अभी तक चैनल में शामिल नहीं हुए हैं!",
-        "welcome": "नमस्ते {name}! 👋\n\nबॉट का उपयोग करने के लिए, पहले हमारे चैनल से जुड़ें:\n{channel}\n\nजुड़ने के बाद नीचे दिए गए बटन पर क्लिक करें।",
-        "ask_wallet": "💳 कृपया अपना वॉलेट पता भेजें (प्राथमिकता Tonkeeper):\n\n*(या इसे छोड़ने और बाद में सेटिंग में जोड़ने के लिए नीचे दिए गए बटन पर क्लिक करें)*",
-        "skip_wallet": "⏭ छोड़ें (पैनल में जाएं)",
-        "wallet_saved": "✅ वॉलेट का पता सफलतापूर्वक सहेज लिया गया!",
-        "wallet_skipped": "⚠️ वॉलेट सेटअप छोड़ दिया गया। आप इसे सेटिंग से कभी भी सेट कर सकते हैं.",
-        "panel_title": "📊 **आपका यूजर पैनल**",
-        "username": "👤 यूजरनेम",
-        "balance": "💰 टोकन बैलेंस",
-        "token_word": "टोकन",
-        "referrals": "👥 रेफरल",
-        "wallet": "💳 वॉलेट",
-        "not_set": "सेट नहीं है",
-        "ref_link_text": "🔗 **आपका विशेष आमंत्रण लिंक:**",
-        "ref_desc": "इस लिंक को दोस्तों के साथ साझा करें और उनके जुड़ने पर टोकन कमाएं!",
-        "refresh": "🔄 रिफ्रेश करें",
-        "settings": "⚙️ सेटिंग",
-        "settings_title": "⚙️ **सेटिंग्स मेनू**\n\nएक विकल्प चुनें:",
-        "change_lang": "🌐 भाषा बदलें",
-        "set_wallet": "💳 वॉलेट सेट/संपादित करें",
-        "back_to_menu": "🔙 मुख्य मेनू पर जाएं",
-        "enter_new_wallet": "कृपया अपना नया वॉलेट पता भेजें:",
-        "admin_panel": "🛠 **एडमिन पैनल**\n\n• साइनअप रिवॉर्ड: `{signup}`\n• रेफरल रिवॉर्ड: `{ref}`\n• कुल उपयोगकर्ता: `{users_count}`\n\nबटन का उपयोग करें:",
-        "adm_btn_signup": "🎁 साइनअप रिवॉर्ड बदलें",
-        "adm_btn_ref": "👥 रेफरल रिवॉर्ड बदलें",
-        "adm_btn_milestone": "⚙️ माइलस्टोन सेट करें",
-        "adm_btn_csv": "📊 CSV एक्सपोर्ट",
-        "adm_btn_html": "🌐 HTML एक्सपोर्ट",
-        "adm_btn_reset": "⚠️ ریست کن",
-        "adm_btn_announcement": "📢 घोषणा सेट करें",
-        "not_admin": "You are not admin."
     }
+    # سایر زبان‌ها در صورت نیاز اضافه می‌شوند
 }
 
-def get_text(user_id, key, **kwargs):
-    lang = users_db.get(user_id, {}).get("lang", "fa")
-    text_template = TRANSLATIONS.get(lang, TRANSLATIONS["fa"]).get(key, TRANSLATIONS["fa"].get(key, key))
+def get_text(user_db_data, key, **kwargs):
+    lang = user_db_data.get("lang", "fa") if user_db_data else "fa"
+    trans = TRANSLATIONS.get(lang, TRANSLATIONS["fa"])
+    text_template = trans.get(key, TRANSLATIONS["fa"].get(key, key))
     return text_template.format(**kwargs)
+
+# --- توابع کار با دیتابیس کلودفلر (Cloudflare D1) ---
+def get_user_from_db(env, user_id):
+    query = "SELECT * FROM users WHERE user_id = ?"
+    result = env.DB.prepare(query).bind(user_id).first()
+    if result:
+        return {
+            "user_id": result.user_id,
+            "first_name": result.first_name,
+            "username": result.username,
+            "balance": result.balance,
+            "referrals": result.referrals,
+            "referred_by": result.referred_by,
+            "lang": result.lang,
+            "wallet": result.wallet,
+            "state": result.state
+        }
+    return None
+
+def save_user_to_db(env, user_data):
+    query = """
+        INSERT INTO users (user_id, first_name, username, balance, referrals, referred_by, lang, wallet, state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            first_name=excluded.first_name,
+            username=excluded.username,
+            balance=excluded.balance,
+            referrals=excluded.referrals,
+            referred_by=excluded.referred_by,
+            lang=excluded.lang,
+            wallet=excluded.wallet,
+            state=excluded.state;
+    """
+    env.DB.prepare(query).bind(
+        user_data["user_id"],
+        user_data.get("first_name", ""),
+        user_data.get("username", ""),
+        user_data.get("balance", 0.0),
+        user_data.get("referrals", 0),
+        user_data.get("referred_by"),
+        user_data.get("lang", "fa"),
+        user_data.get("wallet"),
+        user_data.get("state")
+    ).run()
+
+def get_total_users_count(env):
+    res = env.DB.prepare("SELECT COUNT(*) as count FROM users").first()
+    return res.count if res else 0
 
 def is_user_member(user_id):
     try:
@@ -270,13 +125,15 @@ def is_user_member(user_id):
     except Exception:
         return False
 
-# --- هندلرها ---
+# --- هندلرها و منطق ربات ---
 @bot.message_handler(commands=['start'])
-def handle_start(message):
+def handle_start(message, env):
     user_id = message.from_user.id
-    if user_id not in users_db:
+    user_data = get_user_from_db(env, user_id)
+    
+    if not user_data:
         initial_balance = float(settings["signup_reward"])
-        users_db[user_id] = {
+        user_data = {
             "user_id": user_id,
             "first_name": message.from_user.first_name or "No Name",
             "username": message.from_user.username or "",
@@ -289,334 +146,176 @@ def handle_start(message):
         }
 
         args = message.text.split()
-        if len(args) > 1:
-            inviter_id_str = args[1]
-            if inviter_id_str.isdigit():
-                inviter_id = int(inviter_id_str)
-                if inviter_id != user_id and users_db[user_id]["referred_by"] is None:
-                    if inviter_id in users_db:
-                        users_db[user_id]["referred_by"] = inviter_id
-                        users_db[inviter_id]["referrals"] += 1
-                        
-                        reward = settings["reward_per_referral"]
-                        milestone_count = settings["ref_milestone_count"]
-                        milestone_bonus = settings["ref_milestone_bonus"]
-                        
-                        if milestone_count > 0 and users_db[inviter_id]["referrals"] % milestone_count == 0:
-                            reward += milestone_bonus
-
-                        users_db[inviter_id]["balance"] += reward
-                        try:
-                            inviter_lang = users_db[inviter_id].get("lang", "fa")
-                            msg_text = TRANSLATIONS[inviter_lang]["ref_reward_msg"].format(
-                                name=message.from_user.first_name, reward=reward
-                            )
-                            bot.send_message(inviter_id, msg_text)
-                        except Exception:
-                            pass
+        if len(args) > 1 and args[1].isdigit():
+            inviter_id = int(args[1])
+            if inviter_id != user_id:
+                inviter_data = get_user_from_db(env, inviter_id)
+                if inviter_data and not user_data["referred_by"]:
+                    user_data["referred_by"] = inviter_id
+                    inviter_data["referrals"] += 1
+                    inviter_data["balance"] += settings["reward_per_referral"]
+                    save_user_to_db(env, inviter_data)
+                    
+                    try:
+                        msg_text = get_text(inviter_data, "ref_reward_msg", name=message.from_user.first_name, reward=settings["reward_per_referral"])
+                        bot.send_message(inviter_id, msg_text)
+                    except Exception:
+                        pass
+        save_user_to_db(env, user_data)
     else:
-        users_db[user_id]["first_name"] = message.from_user.first_name or "No Name"
-        users_db[user_id]["username"] = message.from_user.username or ""
+        user_data["first_name"] = message.from_user.first_name or "No Name"
+        user_data["username"] = message.from_user.username or ""
+        save_user_to_db(env, user_data)
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
+        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en")
     )
     bot.send_message(user_id, "Please select your language:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("setlang_"))
-def process_language_selection(call):
+def process_language_selection(call, env):
     user_id = call.from_user.id
     lang_code = call.data.split("_")[1]
     
-    if user_id not in users_db:
-        users_db[user_id] = {
-            "user_id": user_id, 
-            "first_name": call.from_user.first_name or "No Name", 
-            "username": call.from_user.username or "", 
-            "balance": float(settings["signup_reward"]), 
-            "referrals": 0, 
-            "referred_by": None, 
-            "wallet": None
+    user_data = get_user_from_db(env, user_id)
+    if not user_data:
+        user_data = {
+            "user_id": user_id, "first_name": call.from_user.first_name or "", "username": call.from_user.username or "",
+            "balance": float(settings["signup_reward"]), "referrals": 0, "referred_by": None, "wallet": None, "state": None
         }
     
-    users_db[user_id]["lang"] = lang_code
-    bot.answer_callback_query(call.id, get_text(user_id, "lang_changed"))
+    user_data["lang"] = lang_code
+    save_user_to_db(env, user_data)
+    bot.answer_callback_query(call.id, get_text(user_data, "lang_changed"))
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    check_channel_and_proceed(call.message.chat.id, user_id)
+    check_channel_and_proceed(call, env)
 
-def check_channel_and_proceed(chat_id, user_id):
+def check_channel_and_proceed(call, env):
+    user_id = call.from_user.id
+    chat_id = call.message.chat.id
+    user_data = get_user_from_db(env, user_id)
+
     if not is_user_member(user_id):
         markup = types.InlineKeyboardMarkup()
         channel_slug = CHANNEL_USERNAME.replace('@', '')
-        btn_join = types.InlineKeyboardButton(get_text(user_id, "join_channel"), url=f"https://t.me/{channel_slug}")
-        btn_check = types.InlineKeyboardButton(get_text(user_id, "check_membership"), callback_data="check_membership")
-        markup.add(btn_join)
-        markup.add(btn_check)
+        btn_join = types.InlineKeyboardButton(get_text(user_data, "join_channel"), url=f"https://t.me/{channel_slug}")
+        btn_check = types.InlineKeyboardButton(get_text(user_data, "check_membership"), callback_data="check_membership")
+        markup.add(btn_join, btn_check)
         
-        bot.send_message(
-            chat_id,
-            get_text(user_id, "welcome", name=bot.get_chat(user_id).first_name, channel=CHANNEL_USERNAME),
-            reply_markup=markup
-        )
+        bot.send_message(chat_id, get_text(user_data, "welcome", name=call.from_user.first_name, channel=CHANNEL_USERNAME), reply_markup=markup)
         return
 
-    if not users_db[user_id].get("wallet"):
-        ask_for_wallet(chat_id, user_id)
+    if not user_data.get("wallet"):
+        ask_for_wallet(chat_id, user_id, env)
     else:
-        send_main_menu(chat_id, user_id)
+        send_main_menu(chat_id, user_id, env)
 
 @bot.callback_query_handler(func=lambda call: call.data == "check_membership")
-def verify_membership(call):
+def verify_membership(call, env):
     user_id = call.from_user.id
+    user_data = get_user_from_db(env, user_id)
     if is_user_member(user_id):
         bot.answer_callback_query(call.id, "✅ OK!")
         try:
             bot.delete_message(call.message.chat.id, call.message.message_id)
         except Exception:
             pass
-        if not users_db[user_id].get("wallet"):
-            ask_for_wallet(call.message.chat.id, user_id)
+        if not user_data.get("wallet"):
+            ask_for_wallet(call.message.chat.id, user_id, env)
         else:
-            send_main_menu(call.message.chat.id, user_id)
+            send_main_menu(call.message.chat.id, user_id, env)
     else:
-        bot.answer_callback_query(call.id, get_text(user_id, "not_member"), show_alert=True)
+        bot.answer_callback_query(call.id, get_text(user_data, "not_member"), show_alert=True)
 
-def ask_for_wallet(chat_id, user_id):
-    users_db[user_id]["state"] = "waiting_for_wallet"
+def ask_for_wallet(chat_id, user_id, env):
+    user_data = get_user_from_db(env, user_id)
+    user_data["state"] = "waiting_for_wallet"
+    save_user_to_db(env, user_data)
+    
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(get_text(user_id, "skip_wallet"), callback_data="skip_wallet"))
-    bot.send_message(chat_id, get_text(user_id, "ask_wallet"), reply_markup=markup)
+    markup.add(types.InlineKeyboardButton(get_text(user_data, "skip_wallet"), callback_data="skip_wallet"))
+    bot.send_message(chat_id, get_text(user_data, "ask_wallet"), reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "skip_wallet")
-def skip_wallet_step(call):
+def skip_wallet_step(call, env):
     user_id = call.from_user.id
-    users_db[user_id]["state"] = None
-    bot.answer_callback_query(call.id, get_text(user_id, "wallet_skipped"))
+    user_data = get_user_from_db(env, user_id)
+    user_data["state"] = None
+    save_user_to_db(env, user_data)
+    bot.answer_callback_query(call.id, get_text(user_data, "wallet_skipped"))
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    send_main_menu(call.message.chat.id, user_id)
+    send_main_menu(call.message.chat.id, user_id, env)
 
-@bot.message_handler(func=lambda message: users_db.get(message.from_user.id, {}).get("state") == "waiting_for_wallet")
-def save_wallet_address(message):
+@bot.message_handler(func=lambda message, env: get_user_from_db(env, message.from_user.id) and get_user_from_db(env, message.from_user.id).get("state") == "waiting_for_wallet")
+def save_wallet_address(message, env):
     user_id = message.from_user.id
-    wallet_address = message.text.strip()
-    users_db[user_id]["wallet"] = wallet_address
-    users_db[user_id]["state"] = None
-    bot.send_message(message.chat.id, get_text(user_id, "wallet_saved"))
-    send_main_menu(message.chat.id, user_id)
+    user_data = get_user_from_db(env, user_id)
+    user_data["wallet"] = message.text.strip()
+    user_data["state"] = None
+    save_user_to_db(env, user_data)
+    bot.send_message(message.chat.id, get_text(user_data, "wallet_saved"))
+    send_main_menu(message.chat.id, user_id, env)
 
-def send_main_menu(chat_id, user_id):
-    user_data = users_db.get(user_id, {"balance": 0, "referrals": 0, "wallet": None})
-    username = f"@{user_data.get('username')}" if user_data.get('username') else get_text(user_id, "not_set")
-    wallet = user_data.get("wallet") or get_text(user_id, "not_set")
+def send_main_menu(chat_id, user_id, env):
+    user_data = get_user_from_db(env, user_id)
+    username = f"@{user_data.get('username')}" if user_data.get('username') else get_text(user_data, "not_set")
+    wallet = user_data.get("wallet") or get_text(user_data, "not_set")
     
     bot_info = bot.get_me()
     ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-    token_w = get_text(user_id, 'token_word')
-    announcement_text = f"\n\n📢 **اطلاعیه مهم:**\n{settings['announcement']}" if settings['announcement'] else ""
-
+    token_w = get_text(user_data, 'token_word')
+    
     text = (
-        f"{get_text(user_id, 'panel_title')}\n\n"
-        f"{get_text(user_id, 'username')}: `{username}`\n"
-        f"{get_text(user_id, 'balance')}: `{user_data['balance']}` {token_w}\n"
-        f"{get_text(user_id, 'referrals')}: `{user_data['referrals']}`\n"
-        f"{get_text(user_id, 'wallet')}: `{wallet}`\n\n"
-        f"{get_text(user_id, 'ref_link_text')}\n`{ref_link}`\n\n"
-        f"{get_text(user_id, 'ref_desc')}"
-        f"{announcement_text}"
+        f"{get_text(user_data, 'panel_title')}\n\n"
+        f"{get_text(user_data, 'username')}: `{username}`\n"
+        f"{get_text(user_data, 'balance')}: `{user_data['balance']}` {token_w}\n"
+        f"{get_text(user_data, 'referrals')}: `{user_data['referrals']}`\n"
+        f"{get_text(user_data, 'wallet')}: `{wallet}`\n\n"
+        f"{get_text(user_data, 'ref_link_text')}\n`{ref_link}`\n\n"
+        f"{get_text(user_data, 'ref_desc')}"
     )
     
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton(get_text(user_id, "refresh"), callback_data="refresh_account"),
-        types.InlineKeyboardButton(get_text(user_id, "settings"), callback_data="open_settings")
+        types.InlineKeyboardButton(get_text(user_data, "refresh"), callback_data="refresh_account"),
+        types.InlineKeyboardButton(get_text(user_data, "settings"), callback_data="open_settings")
     )
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: call.data == "refresh_account")
-def refresh_account(call):
+def refresh_account(call, env):
     user_id = call.from_user.id
+    user_data = get_user_from_db(env, user_id)
     if not is_user_member(user_id):
-        bot.answer_callback_query(call.id, get_text(user_id, "not_member"), show_alert=True)
+        bot.answer_callback_query(call.id, get_text(user_data, "not_member"), show_alt=True)
         return
     bot.answer_callback_query(call.id, "Updated.")
     try:
         bot.delete_message(call.message.chat.id, call.message.message_id)
     except Exception:
         pass
-    send_main_menu(call.message.chat.id, user_id)
+    send_main_menu(call.message.chat.id, user_id, env)
 
-@bot.callback_query_handler(func=lambda call: call.data == "open_settings")
-def open_settings_menu(call):
-    user_id = call.from_user.id
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton(get_text(user_id, "change_lang"), callback_data="setting_change_lang"),
-        types.InlineKeyboardButton(get_text(user_id, "set_wallet"), callback_data="setting_set_wallet"),
-        types.InlineKeyboardButton(get_text(user_id, "back_to_menu"), callback_data="back_to_main")
-    )
-    try:
-        bot.edit_message_text(get_text(user_id, "settings_title"), call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
-    except Exception:
-        bot.send_message(call.message.chat.id, get_text(user_id, "settings_title"), reply_markup=markup, parse_mode="Markdown")
-
-@bot.callback_query_handler(func=lambda call: call.data == "setting_change_lang")
-def settings_change_lang(call):
-    user_id = call.from_user.id
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("🇮🇷 فارسی", callback_data="setlang_fa"),
-        types.InlineKeyboardButton("🇺🇸 English", callback_data="setlang_en"),
-        types.InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru"),
-        types.InlineKeyboardButton("🇸🇦 العربية", callback_data="setlang_ar"),
-        types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
-        types.InlineKeyboardButton("🇮🇳 हिन्दी", callback_data="setlang_hi")
-    )
-    try:
-        bot.edit_message_text("Please select your language:", call.message.chat.id, call.message.message_id, reply_markup=markup)
-    except Exception:
-        bot.send_message(call.message.chat.id, "Please select your language:", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data == "setting_set_wallet")
-def settings_set_wallet(call):
-    user_id = call.from_user.id
-    users_db[user_id]["state"] = "waiting_for_wallet"
-    bot.answer_callback_query(call.id)
-    bot.send_message(call.message.chat.id, get_text(user_id, "enter_new_wallet"))
-
-@bot.callback_query_handler(func=lambda call: call.data == "back_to_main")
-def back_to_main_menu(call):
-    user_id = call.from_user.id
-    try:
-        bot.delete_message(call.message.chat.id, call.message.message_id)
-    except Exception:
-        pass
-    send_main_menu(call.message.chat.id, user_id)
-
-@bot.message_handler(commands=['admin'])
-def admin_panel(message):
-    user_id = message.from_user.id
-    if user_id != ADMIN_ID:
-        bot.send_message(user_id, get_text(user_id, "not_admin"))
-        return
+# --- نقطه ورود کلودفلر (Cloudflare Worker Entry Point) ---
+async def on_fetch(request, env, ctx):
+    if request.method == "POST":
+        try:
+            req_data = await request.json()
+            update = telebot.types.Update.de_json(json.dumps(req_data))
+            
+        
+            # تزریق متغیر env به پردازشگر پیام‌ها
+            bot.process_new_updates([update])
+            return Response.new("OK", status=200)
+        except Exception as e:
+            return Response.new(str(e), status=500)
     
-    admin_text = get_text(
-        user_id, "admin_panel", 
-        signup=settings['signup_reward'], ref=settings['reward_per_referral'], 
-        m_count=settings['ref_milestone_count'], m_bonus=settings['ref_milestone_bonus'], 
-        users_count=len(users_db)
-    )
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_signup"), callback_data="adm_set_signup"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_ref"), callback_data="adm_set_ref"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_milestone"), callback_data="adm_set_milestone"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_csv"), callback_data="adm_export_csv"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_html"), callback_data="adm_export_html"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_announcement"), callback_data="adm_set_announcement"),
-        types.InlineKeyboardButton(get_text(user_id, "adm_btn_reset"), callback_data="adm_reset_bot")
-    )
-    bot.send_message(user_id, admin_text, reply_markup=markup, parse_mode="Markdown")
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("adm_"))
-def admin_callbacks(call):
-    user_id = call.from_user.id
-    if user_id != ADMIN_ID:
-        return
-    action = call.data
-    if action == "adm_set_signup":
-        admin_states[user_id] = "waiting_signup_reward"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً مقدار جدید پاداش عضویت اولیه را ارسال کنید:")
-    elif action == "adm_set_ref":
-        admin_states[user_id] = "waiting_ref_reward"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "لطفاً پاداش پایه رفرال را ارسال کنید:")
-    elif action == "adm_set_milestone":
-        admin_states[user_id] = "waiting_milestone_config"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "ساختار رفرال (مثال: `5, 1`):")
-    elif action == "adm_export_csv":
-        bot.answer_callback_query(call.id, "Exporting CSV...")
-        send_csv_export(user_id)
-    elif action == "adm_export_html":
-        bot.answer_callback_query(call.id, "Exporting HTML...")
-        send_html_export(user_id)
-    elif action == "adm_reset_bot":
-        users_db.clear()
-        bot.answer_callback_query(call.id, "Reset done.")
-        bot.send_message(user_id, "✅ ربات ریست شد.")
-    elif action == "adm_set_announcement":
-        admin_states[user_id] = "waiting_announcement_menu"
-        bot.answer_callback_query(call.id)
-        bot.send_message(user_id, "متن اطلاعیه جدید را ارسال کنید:")
-
-@bot.message_handler(func=lambda message: message.from_user.id == ADMIN_ID and admin_states.get(message.from_user.id))
-def handle_admin_inputs(message):
-    user_id = message.from_user.id
-    state = admin_states.get(user_id)
-    text = message.text.strip()
-    if state == "waiting_signup_reward":
-        settings["signup_reward"] = float(text)
-        admin_states[user_id] = None
-        bot.send_message(user_id, "✅ ثبت شد.")
-    elif state == "waiting_ref_reward":
-        settings["reward_per_referral"] = float(text)
-        admin_states[user_id] = None
-        bot.send_message(user_id, "✅ ثبت شد.")
-    elif state == "waiting_announcement_menu":
-        settings["announcement"] = text
-        admin_states[user_id] = None
-        bot.send_message(user_id, "✅ اطلاعیه تنظیم شد.")
-
-def send_csv_export(admin_id):
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["User ID", "First Name", "Username", "Balance", "Referrals", "Language", "Wallet"])
-    for uid, udata in users_db.items():
-        writer.writerow([uid, udata.get("first_name",""), udata.get("username",""), udata.get("balance",0), udata.get("referrals",0), udata.get("lang","fa"), udata.get("wallet","")])
-    output.seek(0)
-    fb = io.BytesIO(output.getvalue().encode('utf-8-sig'))
-    fb.name = "users_report.csv"
-    bot.send_document(admin_id, fb)
-
-def send_html_export(admin_id):
-    html = f"<html><body><h2>Users ({len(users_db)})</h2></body></html>"
-    fb = io.BytesIO(html.encode('utf-8'))
-    fb.name = "users_report.html"
-    bot.send_document(admin_id, fb)
-
-# --- وب‌سرور Flask برای دریافت وب‌هوک ---
-@app.route(WEBHOOK_URL_PATH, methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return '', 200
-    else:
-        abort(403)
-
-@app.route('/')
-def index():
-    return "Bot is running via Webhook!", 200
-
-if __name__ == "__main__":
-    # تنظیم مجدد وب‌هوک روی سرور
-    bot.remove_webhook()
-    bot.set_webhook(url=RENDER_EXTERNAL_URL + WEBHOOK_URL_PATH)
-    
-    # اجرای وب‌سرور روی پورت اختصاصی رندر
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    return Response.new("Cloudflare Bot is running!", status=200)
